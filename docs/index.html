@@ -133,7 +133,11 @@ pre .c { color: #8f8ab3; }
 
 .themes img { border-radius: var(--radius); border: 1px solid var(--line); box-shadow: var(--shadow); margin: 0 auto; }
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: -16px 0 32px; }
-.chip { font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+.chip { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; }
+.chip:hover, .chip:focus-visible { color: var(--text); border-color: color-mix(in srgb, var(--brand) 40%, var(--line)); outline: none; }
+.chip.on { color: #fff; background: var(--mark); border-color: transparent; }
+.theme-show { display: flex; justify-content: center; }
+.theme-show img { width: min(360px, 100%); height: auto; border: 0; box-shadow: none; border-radius: 0; }
 
 .steps { counter-reset: step; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
 .step { position: relative; padding: 26px 24px 24px 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
@@ -308,12 +312,13 @@ lsof -i -a -p $(pgrep -x Cadabra)
   <div class="wrap">
     <h2><span lang="zh">换个心情</span><span lang="en">Make it yours</span></h2>
     <p class="sub"><span lang="zh">设置 › 通用 › 主题，选了马上生效，菜单、录音提示条和设置窗口一起换。</span><span lang="en">Settings › General › Theme changes the menu, the recording bar and the windows at once.</span></p>
-    <div class="chips">
-      <span class="chip">Cadabra</span><span class="chip"><span lang="zh">星夜</span><span lang="en">Starlight</span></span><span class="chip"><span lang="zh">纸墨</span><span lang="en">Paper and ink</span></span><span class="chip"><span lang="zh">糖果</span><span lang="en">Candy</span></span>
-      <span class="chip">Dracula</span><span class="chip">Nord</span><span class="chip">One Dark</span><span class="chip">Monokai</span><span class="chip">Solarized Light</span><span class="chip">Solarized Dark</span><span class="chip">GitHub Light</span><span class="chip">Gruvbox</span>
+    <div class="chips" id="theme-chips">
+      <button type="button" class="chip on" data-theme="cadabra" aria-pressed="true">Cadabra</button><button type="button" class="chip" data-theme="starlight" aria-pressed="false"><span lang="zh">星夜</span><span lang="en">Starlight</span></button><button type="button" class="chip" data-theme="paper" aria-pressed="false"><span lang="zh">纸墨</span><span lang="en">Paper and ink</span></button><button type="button" class="chip" data-theme="candy" aria-pressed="false"><span lang="zh">糖果</span><span lang="en">Candy</span></button><button type="button" class="chip" data-theme="dracula" aria-pressed="false">Dracula</button><button type="button" class="chip" data-theme="nord" aria-pressed="false">Nord</button><button type="button" class="chip" data-theme="onedark" aria-pressed="false">One Dark</button><button type="button" class="chip" data-theme="monokai" aria-pressed="false">Monokai</button><button type="button" class="chip" data-theme="solarized-light" aria-pressed="false">Solarized Light</button><button type="button" class="chip" data-theme="solarized-dark" aria-pressed="false">Solarized Dark</button><button type="button" class="chip" data-theme="github-light" aria-pressed="false">GitHub Light</button><button type="button" class="chip" data-theme="gruvbox" aria-pressed="false">Gruvbox</button>
     </div>
-    <img lang="zh" src="images/themes-zh.png" width="1600" alt="十二套主题" loading="lazy">
-    <img lang="en" src="images/themes-en.png" width="1600" alt="Twelve themes" loading="lazy">
+    <div class="theme-show">
+      <img lang="zh" class="theme-pic" src="images/themes/cadabra-zh.png" width="360" height="466" alt="Cadabra 主题的菜单和录音条">
+      <img lang="en" class="theme-pic" src="images/themes/cadabra-en.png" width="360" height="466" alt="The menu and the recording bar in the Cadabra theme">
+    </div>
   </div>
 </section>
 
@@ -409,6 +414,24 @@ lsof -i -a -p $(pgrep -x Cadabra)
   try { saved = localStorage.getItem("lang"); } catch (e) {}
   set(saved || ((navigator.language || "").toLowerCase().indexOf("zh") === 0 ? "zh" : "en"));
   document.getElementById("lang").addEventListener("click", function () { set(root.dataset.lang === "zh" ? "en" : "zh"); });
+
+  // The theme picker: hover (or tap) a theme to see its menu and recording bar.
+  var chips = document.querySelectorAll("#theme-chips .chip");
+  function show(id) {
+    document.querySelectorAll(".theme-pic").forEach(function (img) {
+      img.src = "images/themes/" + id + "-" + img.getAttribute("lang") + ".png";
+    });
+    chips.forEach(function (c) {
+      var on = c.dataset.theme === id;
+      c.classList.toggle("on", on);
+      c.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
+  chips.forEach(function (c) {
+    c.addEventListener("mouseenter", function () { show(c.dataset.theme); });
+    c.addEventListener("focus", function () { show(c.dataset.theme); });
+    c.addEventListener("click", function () { show(c.dataset.theme); });
+  });
 
   // The latest version number, if GitHub answers; the page works without it.
   fetch("https://api.github.com/repos/phg1024/Cadabra/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
