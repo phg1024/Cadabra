@@ -11,12 +11,12 @@ struct LearnedFixesTests {
 
     @Test func learningTheSameFixAgainConfirmsIt() {
         let learned = LearnedFixes(url: nil)
-        learned.learn(typed: "试试dation吧", edited: "试试dictation吧")
+        learned.learn(typed: "试试Jaba吧", edited: "试试Java吧")
         #expect(learned.fixes.map(\.count) == [1])
-        #expect(learned.apply("再说一次dation") == "再说一次dation")   // not confirmed yet
-        learned.learn(typed: "dation好用", edited: "dictation好用")
+        #expect(learned.apply("再说一次Jaba") == "再说一次Jaba")   // not confirmed yet
+        learned.learn(typed: "Jaba好用", edited: "Java好用")
         #expect(learned.fixes.map(\.count) == [2])
-        #expect(learned.apply("再说一次dation") == "再说一次dictation")
+        #expect(learned.apply("再说一次Jaba") == "再说一次Java")
     }
 
     @Test func aFixMadeInHistoryIsConfirmedAtOnce() {
@@ -27,9 +27,41 @@ struct LearnedFixesTests {
 
     @Test func changingYourMindDropsTheOppositeFix() {
         let learned = LearnedFixes(url: nil)
-        learned.learn(typed: "这台ender机器", edited: "这台push机器")
-        learned.learn(typed: "这台push机器", edited: "这台ender机器")
-        #expect(learned.fixes.map { "\($0.heard) → \($0.meant)" } == ["push → ender"])
+        learned.learn(typed: "问杰森一下", edited: "问JSON一下")
+        learned.learn(typed: "问JSON一下", edited: "问杰森一下")
+        #expect(learned.fixes.map { "\($0.heard) → \($0.meant)" } == ["JSON → 杰森"])
+    }
+
+    @Test func rewordingIsNotLearned() {
+        let learned = LearnedFixes(url: nil)
+        learned.learn(typed: "我们用电脑来做", edited: "我们用手机来做")
+        learned.learn(typed: "OK", edited: "Sure")
+        learned.learn(typed: "the engine is slow", edited: "the model is slow")
+        #expect(learned.fixes.isEmpty)
+        learned.learn(typed: "问派森吧", edited: "问Python吧")
+        #expect(learned.fixes.map(\.meant) == ["Python"])
+    }
+
+    @Test func aPlainEnglishWordIsOnlyAHint() {
+        let fixes = [fix("evaluate", "evaluator"), fix("Jaba", "Java")]
+        #expect(!fixes[0].applies)
+        #expect(fixes[1].applies)
+        let learned = LearnedFixes(url: nil)
+        learned.learn(typed: "the evaluate run", edited: "the evaluator run", weight: LearnedFixes.confirmAt)
+        #expect(learned.apply("the evaluate run") == "the evaluate run")
+    }
+
+    @Test func junkLearnedBeforeTheCheckIsCleanedUpWithABackup() throws {
+        defer {
+            try? FileManager.default.removeItem(at: url)
+            try? FileManager.default.removeItem(at: url.deletingPathExtension().appendingPathExtension("before-cleanup.json"))
+        }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        try encoder.encode([fix("电脑", "手机"), fix("不许", "push")]).write(to: url)
+        let learned = LearnedFixes(url: url)
+        #expect(learned.fixes.map(\.meant) == ["push"])
+        #expect(FileManager.default.fileExists(atPath: url.deletingPathExtension().appendingPathExtension("before-cleanup.json").path))
     }
 
     @Test func englishFixesReplaceWholeWordsInAnyCase() {
@@ -64,9 +96,9 @@ struct LearnedFixesTests {
     @Test func keepIsVocabularyAndTermsButNotWhatAFixChanges() {
         let learned = LearnedFixes(url: nil)
         learned.learn(typed: "记得不许上去", edited: "记得push上去")
-        learned.learn(typed: "拿push打支架", edited: "拿ender打支架")
-        #expect(learned.keep(vocabulary: "Bambu, OrcaSlicer，Kuma\n Ender ") == ["Bambu", "OrcaSlicer", "Kuma", "Ender"])
-        #expect(learned.keep(vocabulary: "") == ["ender"])   // push is what a fix changes
+        learned.learn(typed: "拿push打支架", edited: "拿pushes打支架")
+        #expect(learned.keep(vocabulary: "Bambu, OrcaSlicer，Kuma\n Ender ") == ["Bambu", "OrcaSlicer", "Kuma", "Ender", "pushes"])
+        #expect(learned.keep(vocabulary: "") == ["pushes"])   // push is what a fix changes
     }
 
     @Test func containsTerm() {
@@ -79,10 +111,10 @@ struct LearnedFixesTests {
     @Test func termsLeaveOutTheNeighbourKeptForContext() {
         let learned = LearnedFixes(url: nil)
         learned.learn(typed: "昨天没有铺过去", edited: "昨天没有push过去")
-        learned.learn(typed: "设计很贵的", edited: "设计很weird的")
-        #expect(learned.fixes.map(\.heard) == ["有铺", "很贵"])
-        #expect(learned.terms == ["push", "weird"])
-        #expect(learned.keep(vocabulary: "") == ["push", "weird"])
+        learned.learn(typed: "问派森吧", edited: "问Python吧")
+        #expect(learned.fixes.map(\.heard) == ["有铺", "派森"])
+        #expect(learned.terms == ["push", "Python"])
+        #expect(learned.keep(vocabulary: "") == ["push", "Python"])
         #expect(learned.fixes[0].core == ("铺", "push"))
         #expect(LearnedFix(heard: "dation", meant: "dictation", count: 1, lastSeen: .now).core == ("dation", "dictation"))
         #expect(LearnedFix(heard: "The Luga Halla", meant: "beluga Halluga", count: 1, lastSeen: .now).core == ("The Luga Halla", "beluga Halluga"))
@@ -92,6 +124,7 @@ struct LearnedFixesTests {
         defer { try? FileManager.default.removeItem(at: url) }
         let learned = LearnedFixes(url: url)
         learned.learn(typed: "试试dation吧", edited: "试试dictation吧")
+        Storage.flush()
         let reloaded = LearnedFixes(url: url)
         #expect(reloaded.fixes.map(\.heard) == ["dation"])
         #expect(reloaded.fixes.map(\.meant) == ["dictation"])

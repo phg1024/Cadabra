@@ -197,7 +197,7 @@ private struct GeneralSettings: View {
                 Toggle(t("保存历史记录", "Keep history"), isOn: $prefs.saveHistory)
                 Toggle(isOn: $prefs.saveRecordings) {
                     Text(t("保存录音", "Save recordings"))
-                    Text(t("用来排查识别问题。只存在本机，不会上传。", "For tracking down recognition problems. Kept on this Mac only."))
+                    Text(t("用来排查识别问题，每次都存，不会自动清理。只为训练的话不用开：上面的「保存录音，用来训练语音模型」已经存了录音。只存在本机。", "For tracking down recognition problems; every dictation is kept until you delete it. Not needed for training: “Keep recordings to train the speech model” above already keeps the audio. Kept on this Mac only."))
                 }
                 if prefs.saveRecordings {
                     HStack {
@@ -262,6 +262,9 @@ private struct CorrectionStatus: View {
             }
         case .ready:
             Label(t("模型已就绪", "Model ready"), systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+        case .resting:
+            Label(t("一段时间没用，已暂时卸载以腾出内存；开始录音时会自动加载", "Unloaded after a while unused to free memory; loads again when you start recording"),
+                  systemImage: "moon.zzz").foregroundStyle(.secondary)
         case .failed(let message):
             HStack(alignment: .firstTextBaseline) {
                 Text(message).foregroundStyle(.orange)
@@ -520,7 +523,7 @@ struct VocabularySettings: View {
                     }
                 }
             } footer: {
-                note(t("改过两次（或在历史记录里改过一次）的会直接替换，标为「自动替换」；其余的只给纠错模型做参考。学错了的点 × 忘掉。", "Fixes made twice (or once in History) are applied directly; the rest are hints for the correction model. Click × to forget a wrong one."))
+                note(t("只记读音相近的改动（听错了），改写内容的不记。改过两次（或在历史记录里改过一次）的会直接替换，标为「自动替换」；被替换的是普通英文单词时只做提示。其余的只给纠错模型做参考。学错了的点 × 忘掉。", "Only changes that sound like what was heard are learned (mishearings), not rewording. Fixes made twice (or once in History) are applied directly, unless they would replace an ordinary English word; the rest are hints for the correction model. Click × to forget a wrong one."))
             }
         }
         .formStyle(.grouped)
@@ -535,11 +538,12 @@ struct VocabularySettings: View {
         let query = filter.trimmingCharacters(in: .whitespaces).lowercased()
         return learned.fixes
             .filter { query.isEmpty || $0.heard.lowercased().contains(query) || $0.meant.lowercased().contains(query) }
-            .sorted { ($0.confirmed ? 1 : 0, $0.lastSeen) > ($1.confirmed ? 1 : 0, $1.lastSeen) }
+            .sorted { ($0.applies ? 1 : 0, $0.lastSeen) > ($1.applies ? 1 : 0, $1.lastSeen) }
     }
 
     private func add() {
-        let new = Preferences.terms(in: newTerm).filter { term in !prefs.vocabularyTerms.contains { $0.lowercased() == term.lowercased() } }
+        var seen = Set(prefs.vocabularyTerms.map { $0.lowercased() })
+        let new = Preferences.terms(in: newTerm).filter { seen.insert($0.lowercased()).inserted }
         if !new.isEmpty { prefs.vocabularyTerms += new }
         newTerm = ""
     }
@@ -582,11 +586,11 @@ private struct LearnedFixRow: View {
             Text(fix.meant)
             Spacer()
             Text(t("\(fix.count) 次", "×\(fix.count)")).font(.system(size: 11).monospacedDigit()).foregroundStyle(.tertiary)
-            Text(fix.confirmed ? t("自动替换", "applied") : t("提示", "hint"))
+            Text(fix.applies ? t("自动替换", "applied") : t("提示", "hint"))
                 .font(.system(size: 11))
                 .padding(.horizontal, 6).padding(.vertical, 1)
-                .background(Capsule().fill(fix.confirmed ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.06)))
-                .foregroundStyle(fix.confirmed ? Color.accentColor : Color.secondary)
+                .background(Capsule().fill(fix.applies ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.06)))
+                .foregroundStyle(fix.applies ? Color.accentColor : Color.secondary)
             Button(action: onDelete) { Image(systemName: "xmark.circle.fill") }
                 .buttonStyle(.borderless).foregroundStyle(.tertiary)
                 .help(t("忘掉这条", "Forget this one"))

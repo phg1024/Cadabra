@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import Carbon
 
 /// Puts text at the cursor of whatever app has focus: clipboard + a synthetic ⌘V,
 /// then (optionally) puts the previous clipboard back.
@@ -7,14 +8,61 @@ enum TextInjector {
     /// Tags our synthetic key events so the hotkey monitor ignores them.
     static let eventMarker: Int64 = 0x4D_5769_7370   // "MWisp"
 
-    /// Returns false when Accessibility is missing; nothing is changed then.
-    @MainActor @discardableResult
-    static func paste(_ text: String, restoreClipboard: Bool) -> Bool {
-        guard AXIsProcessTrusted() else { return false }
-        // Slow apps (Electron, terminals) need a moment to read the clipboard before it changes back.
-        ClipboardSwap.general.put(text, restoreAfter: restoreClipboard ? 0.6 : nil)
+    /// Where the text should go: the app and field that had focus when the user finished speaking.
+    struct Target {
+        let pid: pid_t
+        let element: AXUIElement?
+
+        /// Nil when our own app is in front (the menu's button), where there is nothing to compare.
+        @MainActor static func current() -> Target? {
+            guard let app = NSWorkspace.shared.frontmostApplication, app.processIdentifier != getpid() else { return nil }
+            return Target(pid: app.processIdentifier, element: focusedElement())
+        }
+
+        /// Still in front, and (when the app tells) the same field.
+        @MainActor var isStillFocused: Bool {
+            guard NSWorkspace.shared.frontmostApplication?.processIdentifier == pid else { return false }
+            guard let element, let now = focusedElement() else { return true }
+            return CFEqual(element, now)
+        }
+    }
+
+    /// Why a paste was not made; the text is on the clipboard instead.
+    enum Refusal { case noAccess, focusMoved, secureField }
+
+    /// Pastes unless focus moved away from `target` meanwhile or a password field has it; returns why not.
+    /// The clipboard goes back to the user's after `settle(restore:)` or a few seconds.
+    @MainActor
+    static func paste(_ text: String, restoreClipboard: Bool, into target: Target?) -> Refusal? {
+        guard AXIsProcessTrusted() else { return .noAccess }
+        if let target, !target.isStillFocused { return .focusMoved }
+        if IsSecureEventInputEnabled() || focusedElement().map(isSecure) == true { return .secureField }
+        ClipboardSwap.general.put(text, restoreAfter: restoreClipboard ? 3 : nil)
         postCommandV()
-        return true
+        return nil
+    }
+
+    /// Whether `text` is now in the focused field: nil when the app doesn't expose its text.
+    @MainActor
+    static func landed(_ text: String) -> Bool? {
+        guard let element = focusedElement() else { return nil }
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value) == .success,
+              let value = value as? String else { return nil }
+        return value.contains(text)
+    }
+
+    static func focusedElement() -> AXUIElement? {
+        var focused: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute as CFString, &focused) == .success,
+              let focused, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
+        return (focused as! AXUIElement)
+    }
+
+    static func isSecure(_ element: AXUIElement) -> Bool {
+        var subrole: CFTypeRef?
+        AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subrole)
+        return (subrole as? String) == (kAXSecureTextFieldSubrole as String)
     }
 
     @MainActor
@@ -49,6 +97,17 @@ final class ClipboardSwap {
 
     init(_ pasteboard: NSPasteboard) {
         self.pasteboard = pasteboard
+    }
+
+    /// Settles a pending restore early: `restore` puts the user's clipboard back now (the text arrived);
+    /// otherwise the dictation stays on the clipboard for ⌘V (it didn't).
+    func settle(restore: Bool) {
+        guard let saved else { return }
+        generation += 1
+        self.saved = nil
+        guard restore, pasteboard.changeCount == ours else { return }
+        pasteboard.prepareForNewContents(with: .currentHostOnly)
+        if !saved.isEmpty { pasteboard.writeObjects(saved) }
     }
 
     func put(_ text: String, restoreAfter delay: TimeInterval?) {

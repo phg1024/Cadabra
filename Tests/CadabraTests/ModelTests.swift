@@ -69,13 +69,10 @@ struct CorrectionModelTests {
         #expect(try await correct(text, fixes: Self.fixes) == expected)
     }
 
-    /// Not solved yet: the model sometimes puts a learned term in place of an ordinary word that sounds
-    /// nothing like it, and no check catches that (it doesn't take out one of the user's words).
+    /// The model sometimes puts a learned term in place of an ordinary word that sounds nothing like it
+    /// (对应 → 有push, 远端 → dwin); the sound-alike check in `vet` undoes that.
     @Test func leavesOrdinaryWordsThatSoundNothingLikeATerm() async throws {
         let text = "我买的那块对应的串口屏到了吗？"
-        let answer = try await correct(text, fixes: Self.fixes)
-        withKnownIssue("对应 → 有push") {
-            #expect(answer == text)
-        }
+        #expect(try await correct(text, fixes: Self.fixes) == text)
     }
 }

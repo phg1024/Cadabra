@@ -27,8 +27,12 @@ enum Rename {
         while running.contains(where: { !$0.isTerminated }), Date() < deadline {
             RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         }
-        if files.fileExists(atPath: old.path), !files.fileExists(atPath: new.path) {
-            do { try files.moveItem(at: old, to: new) } catch { NSLog("Cadabra: could not move \(old.path): \(error)") }
+        if files.fileExists(atPath: old.path) {
+            if !files.fileExists(atPath: new.path) {
+                do { try files.moveItem(at: old, to: new) } catch { NSLog("Cadabra: could not move \(old.path): \(error)") }
+            } else {
+                merge(old, into: new)   // both: say a development build of Cadabra ran first
+            }
         }
         let defaults = UserDefaults.standard
         guard !defaults.bool(forKey: "copiedMyWisperSettings") else { return }
@@ -36,6 +40,50 @@ enum Rename {
             defaults.set(value, forKey: key)
         }
         defaults.set(true, forKey: "copiedMyWisperSettings")
+    }
+
+    /// Moves what only the old folder has; of a file in both, the newer stays and the other is kept
+    /// next to it as `<name>.older-<date>`. Nothing is deleted.
+    static func merge(_ old: URL, into new: URL) {
+        let files = FileManager.default
+        let stamp = Date().formatted(.iso8601.year().month().day())
+        for name in (try? files.contentsOfDirectory(atPath: old.path)) ?? [] {
+            let from = old.appendingPathComponent(name), to = new.appendingPathComponent(name)
+            var isFolder: ObjCBool = false
+            files.fileExists(atPath: from.path, isDirectory: &isFolder)
+            if !files.fileExists(atPath: to.path) {
+                try? files.moveItem(at: from, to: to)
+            } else if isFolder.boolValue {
+                merge(from, into: to)
+            } else if modified(from) > modified(to) {
+                try? files.moveItem(at: to, to: new.appendingPathComponent("\(name).older-\(stamp)"))
+                try? files.moveItem(at: from, to: to)
+            }
+        }
+    }
+
+    private static func modified(_ url: URL) -> Date {
+        (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+    }
+
+    /// Once: if MyWisper.app is still installed, say that it can go (it would fight over the shortcut,
+    /// and may still be a login item) and that Open at Login needs turning on again for Cadabra.
+    @MainActor
+    static func mentionOldApp() {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: "mentionedOldApp") else { return }
+        let places = [FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/MyWisper.app"),
+                      URL(fileURLWithPath: "/Applications/MyWisper.app")]
+        guard let app = places.first(where: { FileManager.default.fileExists(atPath: $0.path) }) else { return }
+        defaults.set(true, forKey: "mentionedOldApp")
+        let alert = NSAlert()
+        alert.messageText = t("MyWisper 改名叫 Cadabra 了", "MyWisper is now Cadabra")
+        alert.informativeText = t("你的设置、历史记录、学到的词和模型都已经搬过来了。旧的 MyWisper.app 还在 \(app.deletingLastPathComponent().path)，可以把它移到废纸篓；如果它设了登录时启动，删掉后就不会再启动了。Cadabra 的「登录时自动启动」请在 设置 › 通用 里重新打开。",
+                                  "Your settings, history, learned words and models have moved over. The old MyWisper.app is still in \(app.deletingLastPathComponent().path); you can move it to the Trash, which also stops it opening at login. Turn on Open at Login for Cadabra again in Settings › General.")
+        alert.addButton(withTitle: t("在访达中显示", "Show in Finder"))
+        alert.addButton(withTitle: t("好", "OK"))
+        NSApp.activate()
+        if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.activateFileViewerSelecting([app]) }
     }
 }
 
@@ -90,7 +138,10 @@ struct CadabraApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        MainActor.assumeIsolated { AppModel.shared.launch() }
+        MainActor.assumeIsolated {
+            AppModel.shared.launch()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { Rename.mentionOldApp() }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {

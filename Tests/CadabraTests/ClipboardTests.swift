@@ -23,6 +23,17 @@ struct ClipboardTests {
         #expect(pasteboard.string(forType: .string) == "the user's own")
     }
 
+    @Test func settlingEarlyRestoresOrKeepsTheDictation() async {
+        let swap = ClipboardSwap(pasteboard)
+        swap.put("dictated", restoreAfter: 5)
+        swap.settle(restore: true)   // the text showed up in the field
+        #expect(pasteboard.string(forType: .string) == "the user's own")
+        swap.put("dictated", restoreAfter: 0.05)
+        swap.settle(restore: false)   // it didn't: leave it for ⌘V, even after the delay
+        await wait(0.2)
+        #expect(pasteboard.string(forType: .string) == "dictated")
+    }
+
     @Test func twoPastesInARowStillPutTheUsersClipboardBack() async {
         let swap = ClipboardSwap(pasteboard)
         swap.put("first", restoreAfter: 0.1)

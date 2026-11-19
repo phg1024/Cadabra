@@ -71,7 +71,8 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
     static let timeout: TimeInterval = 8
 
     enum State: Equatable {
-        case off, needsDownload, downloading(Double), loading, ready, failed(String)
+        /// `resting`: unloaded after a while unused to give the memory back; loads again when a recording starts.
+        case off, needsDownload, downloading(Double), loading, ready, resting, failed(String)
     }
 
     /// Changed on the main thread only.
@@ -101,7 +102,11 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
+    /// Unused this long, the model is unloaded (it holds many GB) until the next recording.
+    static let restAfter: TimeInterval = 15 * 60
+
     private let queue = DispatchQueue(label: "Cadabra.llm", qos: .userInitiated)
+    private var rest: DispatchWorkItem?
     private var model: OpaquePointer?
     private var context: OpaquePointer?
     private var sampler: UnsafeMutablePointer<llama_sampler>?
@@ -143,6 +148,29 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
     private func finishLoad(_ choice: CorrectionModel, _ error: Error?) {
         guard wanted == choice else { return }
         state = error.map { .failed($0.localizedDescription) } ?? .ready
+        if error == nil { scheduleRest() }
+    }
+
+    /// A recording started: load the model again if it was put to rest, so it is likely ready when the
+    /// text is. A dictation never waits for it (see `isReady`).
+    func wake() {
+        guard state == .resting, let wanted else { return }
+        configure(enabled: true, model: wanted)
+    }
+
+    /// Loaded and not busy loading: correcting now won't wait behind a multi-GB load.
+    var isReady: Bool { state == .ready }
+
+    /// Just used (or loaded): unload after `restAfter` more without use. Main thread.
+    func scheduleRest() {
+        rest?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.state == .ready else { return }
+            self.state = .resting
+            self.queue.async { self.unload() }
+        }
+        rest = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.restAfter, execute: work)
     }
 
     /// Only after the user clicked Download.
@@ -241,6 +269,13 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
         func han(_ s: String) -> Bool { s.unicodeScalars.contains { $0.properties.isIdeographic } }
         func latin(_ s: String) -> Bool { s.contains { $0.isASCII && $0.isLetter } }
         if latin(original) && !han(original) && han(corrected) { return original }
+        // A swap that doesn't sound alike is the model putting in a word it likes (often one of the user's
+        // terms: 拳头 → 苹果, 远端 → dwin), not fixing a mishearing. Numbers and case go through.
+        let (a, b) = (Phonetic.key(original), Phonetic.key(corrected))
+        if !a.isEmpty, !b.isEmpty, original.lowercased() != corrected.lowercased(),
+           !(original + corrected).contains(where: \.isNumber), !Phonetic.similar(original, corrected) {
+            return original
+        }
         if original.allSatisfy(\.isWhitespace) && corrected.allSatisfy(\.isWhitespace) { return original }
         var corrected = Substring(corrected)
         if original.first?.isWhitespace != true { corrected = corrected.drop(while: \.isWhitespace) }

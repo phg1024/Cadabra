@@ -22,10 +22,8 @@ final class HistoryStore: ObservableObject {
         self.url = url
         if let entries {
             self.entries = entries
-        } else if let url, let data = try? Data(contentsOf: url) {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            self.entries = (try? decoder.decode([HistoryEntry].self, from: data)) ?? []
+        } else if let url {
+            self.entries = Storage.load([HistoryEntry].self, from: url) ?? []
         }
     }
 
@@ -71,12 +69,6 @@ final class HistoryStore: ObservableObject {
 
     private func save() {
         guard persist, let url else { return }
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted]
-        guard let data = try? encoder.encode(entries) else { return }
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? data.write(to: url, options: .atomic)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        Storage.save(entries, to: url)
     }
 }

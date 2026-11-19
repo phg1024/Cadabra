@@ -36,11 +36,7 @@ final class TrainingData: ObservableObject {
     init(directory: URL = TrainingData.defaultDirectory, limit: Int = 5000) {
         self.directory = directory
         self.limit = limit
-        if let data = try? Data(contentsOf: indexURL) {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            samples = (try? decoder.decode([TrainingSample].self, from: data)) ?? []
-        }
+        samples = Storage.load([TrainingSample].self, from: indexURL) ?? []
     }
 
     var totalDuration: Double { samples.reduce(0) { $0 + $1.duration } }
@@ -48,15 +44,8 @@ final class TrainingData: ObservableObject {
     func add(id: UUID, audio: [Float], recognized: String, text: String, label: TrainingSample.Label) {
         let name = "\(id.uuidString).wav"
         let url = directory.appendingPathComponent(name)
-        do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
-                                                    attributes: [.posixPermissions: 0o700])
-            try AudioFile.wav(audio).write(to: url, options: .atomic)
-            try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
-        } catch {
-            NSLog("Cadabra: could not save training audio: \(error)")
-            return
-        }
+        // On the storage queue, so the WAV is written before the index that names it.
+        Storage.queue.async { Storage.write(AudioFile.wav(audio), to: url) }
         samples.append(TrainingSample(id: id, date: Date(), audio: name,
                                       duration: Double(audio.count) / Double(ASREngine.sampleRate),
                                       recognized: recognized, text: text, label: label))
@@ -88,17 +77,11 @@ final class TrainingData: ObservableObject {
     }
 
     private func removeFile(_ sample: TrainingSample) {
-        try? FileManager.default.removeItem(at: directory.appendingPathComponent(sample.audio))
+        let url = directory.appendingPathComponent(sample.audio)
+        Storage.queue.async { try? FileManager.default.removeItem(at: url) }
     }
 
     private func save() {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let data = try? encoder.encode(samples) else { return }
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
-                                                 attributes: [.posixPermissions: 0o700])
-        try? data.write(to: indexURL, options: .atomic)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: indexURL.path)
+        Storage.save(samples, to: indexURL, sortedKeys: true)
     }
 }

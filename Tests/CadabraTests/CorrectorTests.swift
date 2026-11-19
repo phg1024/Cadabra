@@ -9,6 +9,15 @@ struct CorrectorTests {
         #expect(Corrector.vet("dation", "dictation") == "dictation")
     }
 
+    @Test func vetUndoesSwapsThatDontSoundAlike() {
+        #expect(Corrector.vet("拳头", "苹果") == "拳头")        // a term the model likes, not a mishearing
+        #expect(Corrector.vet("engine", "model") == "engine")
+        #expect(Corrector.vet("时现", "系统") == "系统")
+        #expect(Corrector.vet("肯贝", "commit") == "commit")   // English heard as Chinese
+        #expect(Corrector.vet("四", "4") == "4")
+        #expect(Corrector.vet("github", "GitHub") == "GitHub")
+    }
+
     @Test func vetUndoesSpacingChanges() {
         #expect(Corrector.vet(" ", "  ") == " ")
         #expect(Corrector.vet("", " ") == "")

@@ -20,6 +20,7 @@ struct TrainingDataTests {
         let data = TrainingData(directory: directory)
         let id = UUID()
         data.add(id: id, audio: second, recognized: "用派打", text: "用派打", label: .unchanged)
+        Storage.flush()
         let wav = directory.appendingPathComponent("\(id.uuidString).wav")
         #expect(FileManager.default.fileExists(atPath: wav.path))
         #expect(permissions(directory) == 0o700)
@@ -51,6 +52,7 @@ struct TrainingDataTests {
         data.update(ids[0], text: "b")   // the oldest, but the user confirmed it
         data.add(id: ids[1], audio: second, recognized: "c", text: "c", label: .modelChanged)
         data.add(id: ids[2], audio: second, recognized: "d", text: "d", label: .unchanged)
+        Storage.flush()
         #expect(data.samples.map(\.id) == [ids[0], ids[2]])
         #expect(!FileManager.default.fileExists(atPath: directory.appendingPathComponent("\(ids[1].uuidString).wav").path))
     }
@@ -63,6 +65,7 @@ struct TrainingDataTests {
         data.remove(ids[0])
         #expect(data.samples.map(\.id) == [ids[1]])
         data.clear()
+        Storage.flush()
         let left = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
         #expect(left == ["samples.json"])
     }
@@ -84,12 +87,29 @@ struct HistoryStoreTests {
         let history = HistoryStore(url: url)
         let id = history.add(transcript, text: "一")
         history.update(id, text: "二")
+        Storage.flush()
         #expect(HistoryStore(url: url).entries.map(\.text) == ["二"])
         history.persist = false
         history.add(transcript, text: "三")
+        Storage.flush()
         #expect(HistoryStore(url: url).entries.map(\.text) == ["二"])
         history.clear()   // empties the file even with saving off
+        Storage.flush()
         #expect(HistoryStore(url: url).entries.isEmpty)
+    }
+
+    @Test func anUnreadableFileIsSetAsideNotOverwritten() throws {
+        let folder = url.deletingLastPathComponent()
+        defer { try? FileManager.default.removeItem(at: folder) }
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        try Data("[{\"text\": tru".utf8).write(to: url)   // cut off mid-write
+        let history = HistoryStore(url: url)
+        #expect(history.entries.isEmpty)
+        history.add(transcript, text: "新的")
+        Storage.flush()
+        let names = try FileManager.default.contentsOfDirectory(atPath: folder.path)
+        #expect(names.contains { $0.hasPrefix("history.json.corrupt-") })
+        #expect(HistoryStore(url: url).entries.map(\.text) == ["新的"])
     }
 
     @Test func recentLatency() {

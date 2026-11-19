@@ -1,7 +1,10 @@
 import AppKit
 import AVFoundation
 import Combine
+import os
 import ServiceManagement
+
+private let log = Logger(subsystem: "com.peihongguo.Cadabra", category: "dictation")
 
 /// The one place that knows whether we are recording. The hotkey, the menu button and the HUD
 /// all go through it, so they can never disagree about the state.
@@ -36,6 +39,9 @@ final class AppModel: ObservableObject {
     static let holdThreshold: TimeInterval = 0.35
     /// The microphone opens this long after the key goes down, so ⌃C or ⌥E never touches it.
     static let armDelay: TimeInterval = 0.12
+    /// Another key or a click this soon after the dictation key means it was a modifier (⌥E, ⌥-click)
+    /// and the recording is dropped. Later ones are the user doing something else while talking.
+    static let chordWindow: TimeInterval = 0.5
 
     private let engine = ASREngine()
     private let recorder = AudioRecorder()
@@ -47,6 +53,8 @@ final class AppModel: ObservableObject {
     private var pressStartedRecording = false
     private var pendingStart: DispatchWorkItem?
     private var captureTimeout: DispatchWorkItem?
+    /// Dictations being recognized and corrected; esc cancels them.
+    private var jobs: [UUID: Task<Void, Never>] = [:]
 
     init(prefs: Preferences, history: HistoryStore) {
         self.prefs = prefs
@@ -59,6 +67,9 @@ final class AppModel: ObservableObject {
     // MARK: Launch
 
     func launch() {
+        // Accessibility calls into a hung app would otherwise wait seconds on the main thread, and the
+        // hotkey's event tap (and so the keyboard) with it.
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 0.3)
         history.persist = prefs.saveHistory
         loadModel()
         recorder.onLevel = { [weak self] level in self?.push(level: level) }
@@ -100,6 +111,7 @@ final class AppModel: ObservableObject {
 
     func shutDown() {
         EditWatcher.shared.finish()
+        Storage.flush()
         Corrector.shared.shutDown()   // ggml's Metal device crashes in its exit-time cleanup otherwise
     }
 
@@ -117,7 +129,8 @@ final class AppModel: ObservableObject {
     var needsPermissions: Bool { micStatus != .authorized || !accessibilityGranted }
 
     func refreshPermissions() {
-        micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        let mic = AVCaptureDevice.authorizationStatus(for: .audio)
+        if mic != micStatus { micStatus = mic }   // every second: publish only changes
         let trusted = AXIsProcessTrusted()
         guard trusted != accessibilityGranted || trusted != hotkeys.isRunning else { return }
         accessibilityGranted = trusted
@@ -194,6 +207,7 @@ final class AppModel: ObservableObject {
     private func hotkeyChord() {
         pendingStart?.cancel()
         pendingStart = nil
+        guard Date().timeIntervalSince(pressTime) < Self.chordWindow else { return }
         if isRecording && pressStartedRecording { cancel(silently: true) }
         pressStartedRecording = false
     }
@@ -268,6 +282,7 @@ final class AppModel: ObservableObject {
             return false
         }
         EditWatcher.shared.finish()
+        if prefs.correction { Corrector.shared.wake() }
         self.latched = latched
         isRecording = true
         recordingStart = Date()
@@ -285,6 +300,7 @@ final class AppModel: ObservableObject {
 
     func stop() {
         guard isRecording else { return }
+        let target = TextInjector.Target.current()
         let samples = finishRecording()
         let duration = Double(samples.count) / Double(ASREngine.sampleRate)
         let rms = samples.isEmpty ? 0 : sqrt(samples.reduce(0) { $0 + $1 * $1 } / Float(samples.count))
@@ -296,19 +312,32 @@ final class AppModel: ObservableObject {
         if prefs.sounds { Sounds.stop() }
         pending += 1
         hud.show(.transcribing)
-        Task {
-            defer { pending -= 1 }
+        let job = UUID()
+        jobs[job] = Task {
+            defer { pending -= 1; jobs[job] = nil }
             do {
                 let transcript = try await engine.transcribe(samples)
+                guard !Task.isCancelled else { return }
                 let learned = LearnedFixes.shared
                 let recognized = learned.apply(RepeatedEnding.fix(transcript.text))
                 var corrected: String?
                 if prefs.correction, !recognized.isEmpty {
-                    let vocabulary = ([prefs.vocabulary] + learned.terms.prefix(30)).filter { !$0.isEmpty }.joined(separator: ", ")
-                    corrected = try? await Corrector.shared.correct(recognized, vocabulary: vocabulary, learned: learned.hints(for: recognized),
-                                                                    keep: learned.keep(vocabulary: prefs.vocabulary))
+                    if Corrector.shared.isReady {
+                        let vocabulary = ([prefs.vocabulary] + learned.terms.prefix(30)).filter { !$0.isEmpty }.joined(separator: ", ")
+                        let began = Date()
+                        Corrector.shared.scheduleRest()
+                        corrected = try? await Corrector.shared.correct(recognized, vocabulary: vocabulary, learned: learned.hints(for: recognized),
+                                                                        keep: learned.keep(vocabulary: prefs.vocabulary))
+                        log.notice("recognized in \(Int(transcript.latency * 1000)) ms, corrected in \(Int(Date().timeIntervalSince(began) * 1000)) ms, changed: \(corrected.map { $0 != recognized } ?? false)")
+                    } else {
+                        // Never wait for a model that is still loading (it can take many seconds).
+                        log.notice("recognized in \(Int(transcript.latency * 1000)) ms, correction skipped: model not loaded")
+                    }
+                } else {
+                    log.notice("recognized in \(Int(transcript.latency * 1000)) ms")
                 }
-                let (text, id) = deliver(transcript, text: corrected ?? recognized)
+                guard !Task.isCancelled else { return }
+                let (text, id) = deliver(transcript, text: corrected ?? recognized, to: target)
                 if prefs.collectTraining, let id {
                     TrainingData.shared.add(id: id, audio: samples, recognized: transcript.text, text: text,
                                             label: corrected.map { $0 != recognized } == true ? .modelChanged : .unchanged)
@@ -323,14 +352,21 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Returns whether a recording was cancelled.
+    /// Cancels the recording or, with esc after it, the dictations still being recognized. Returns
+    /// whether anything was cancelled (esc then goes no further).
     @discardableResult
     func cancel(silently: Bool = false) -> Bool {
         pendingStart?.cancel()
         pendingStart = nil
-        guard isRecording else { return false }
-        _ = finishRecording()
-        if silently { hud.hide() } else { hud.flash(.message(t("已取消", "Cancelled"), symbol: "xmark.circle")) }
+        if isRecording {
+            _ = finishRecording()
+            if silently { hud.hide() } else { hud.flash(.message(t("已取消", "Cancelled"), symbol: "xmark.circle")) }
+            return true
+        }
+        guard !silently, !jobs.isEmpty else { return false }
+        jobs.values.forEach { $0.cancel() }
+        jobs.removeAll()
+        hud.flash(.message(t("已取消", "Cancelled"), symbol: "xmark.circle"))
         return true
     }
 
@@ -353,7 +389,7 @@ final class AppModel: ObservableObject {
 
     /// Types or copies the text; returns it and its history entry.
     @discardableResult
-    private func deliver(_ transcript: Transcript, text recognized: String) -> (String, UUID?) {
+    private func deliver(_ transcript: Transcript, text recognized: String, to target: TextInjector.Target?) -> (String, UUID?) {
         var text = recognized
         if prefs.dropTrailingPeriod, let last = text.last, "。.".contains(last) { text.removeLast() }
         guard !text.isEmpty else {
@@ -361,8 +397,18 @@ final class AppModel: ObservableObject {
             return (text, nil)
         }
         let id = history.add(transcript, text: text)
-        let pasted = prefs.autoPaste && TextInjector.paste(text, restoreClipboard: prefs.restoreClipboard)
+        let refusal = prefs.autoPaste ? TextInjector.paste(text, restoreClipboard: prefs.restoreClipboard, into: target) : .noAccess
+        let pasted = refusal == nil
         if !pasted { TextInjector.copy(text) }
+        if pasted {
+            // The user's clipboard goes back once the text shows up in the field; if the field can be read
+            // and the text isn't there, the paste didn't take and the dictation stays on the clipboard.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                let landed = TextInjector.landed(text)
+                ClipboardSwap.general.settle(restore: landed != false)
+                if landed == false, self?.isRecording == false { self?.hud.flash(.done(text, pasted: false)) }
+            }
+        }
         if pasted && prefs.learnFromEdits {
             EditWatcher.shared.begin(typed: text) { [weak self] edited in
                 let fixes = LearnedFixes.shared.learn(typed: text, edited: edited)
@@ -372,7 +418,13 @@ final class AppModel: ObservableObject {
                 TrainingData.shared.update(id, text: TextDiff.substitutions(from: text, to: edited))
             }
         }
-        if !isRecording { hud.flash(.done(text, pasted: pasted)) }
+        if !isRecording {
+            switch refusal {
+            case .focusMoved: hud.flash(.message(t("窗口换了，没有粘贴：已复制，⌘V 粘贴", "Focus moved, so nothing was pasted. Copied: press ⌘V"), symbol: "doc.on.clipboard"))
+            case .secureField: hud.flash(.message(t("密码框里不粘贴：已复制", "Not pasted into a password field. Copied"), symbol: "lock"))
+            default: hud.flash(.done(text, pasted: pasted))
+            }
+        }
         return (text, id)
     }
 

@@ -230,9 +230,12 @@ enum RecordingArchive {
             do {
                 try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                                                         attributes: [.posixPermissions: 0o700])
-                try AudioFile.wav(samples).write(to: base.appendingPathExtension("wav"))
-                try JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted, .sortedKeys])
-                    .write(to: base.appendingPathExtension("json"))
+                for (data, ext) in [(AudioFile.wav(samples), "wav"),
+                                    (try JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted, .sortedKeys]), "json")] {
+                    let url = base.appendingPathExtension(ext)
+                    try data.write(to: url)
+                    try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+                }
             } catch {
                 NSLog("Cadabra: could not save recording: \(error)")
             }

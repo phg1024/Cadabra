@@ -13,8 +13,17 @@ struct LearnedFix: Codable, Identifiable, Hashable {
     /// Applied to new dictations without asking the language model.
     var confirmed: Bool { count >= LearnedFixes.confirmAt }
 
+    /// Applied to new dictations without asking the language model: confirmed, and not a plain English
+    /// word on the heard side ("evaluate" → "evaluator" would rewrite every "evaluate").
+    var applies: Bool { confirmed && !Phonetic.isEnglishWord(core.heard) }
+
+    /// A mishearing rather than the user rewriting what they said: the two sides sound alike.
+    var soundsAlike: Bool { Phonetic.similar(core.heard, core.meant) }
+
     /// The two sides without the neighbours kept for context: 有铺 → 有push is 铺 → push.
-    var core: (heard: String, meant: String) {
+    var core: (heard: String, meant: String) { Self.core(heard: heard, meant: meant) }
+
+    static func core(heard: String, meant: String) -> (heard: String, meant: String) {
         var heard = TextDiff.tokens(heard)[...], meant = TextDiff.tokens(meant)[...]
         while heard.count > 1, meant.count > 1, heard.first == meant.first { heard.removeFirst(); meant.removeFirst() }
         while heard.count > 1, meant.count > 1, heard.last == meant.last { heard.removeLast(); meant.removeLast() }
@@ -34,10 +43,15 @@ final class LearnedFixes: ObservableObject {
 
     init(url: URL? = LearnedFixes.defaultURL()) {
         self.url = url
-        if let url, let data = try? Data(contentsOf: url) {
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            fixes = (try? decoder.decode([LearnedFix].self, from: data)) ?? []
+        guard let url else { return }
+        fixes = Storage.load([LearnedFix].self, from: url) ?? []
+        // Learned before the sound-alike check: rewrites taken for mishearings. The file as it was is kept.
+        let kept = fixes.filter(\.soundsAlike)
+        if kept.count < fixes.count {
+            let aside = url.deletingPathExtension().appendingPathExtension("before-cleanup.json")
+            if !FileManager.default.fileExists(atPath: aside.path) { try? FileManager.default.copyItem(at: url, to: aside) }
+            fixes = kept
+            save()
         }
     }
 
@@ -51,7 +65,11 @@ final class LearnedFixes: ObservableObject {
     /// Learns from the user turning `typed` into `edited`. Returns the fixes it recorded.
     @discardableResult
     func learn(typed: String, edited: String, weight: Int = 1) -> [(heard: String, meant: String)] {
-        let pairs = TextDiff.fixes(from: typed, to: edited)
+        // Only what sounds like what was typed: changing the wording is not a mishearing to learn.
+        let pairs = TextDiff.fixes(from: typed, to: edited).filter { pair in
+            let core = LearnedFix.core(heard: pair.heard, meant: pair.meant)
+            return Phonetic.similar(core.heard, core.meant)
+        }
         for (heard, meant) in pairs {
             if let i = fixes.firstIndex(where: { $0.heard == heard && $0.meant == meant }) {
                 fixes[i].count += weight
@@ -72,7 +90,7 @@ final class LearnedFixes: ObservableObject {
 
     /// Applies the confirmed fixes, longest first.
     func apply(_ text: String) -> String {
-        Self.apply(fixes.filter(\.confirmed), to: text)
+        Self.apply(fixes.filter(\.applies), to: text)
     }
 
     static func apply(_ fixes: [LearnedFix], to text: String) -> String {
@@ -127,13 +145,7 @@ final class LearnedFixes: ObservableObject {
 
     private func save() {
         guard let url else { return }
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.prettyPrinted]
-        guard let data = try? encoder.encode(fixes) else { return }
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try? data.write(to: url, options: .atomic)
-        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        Storage.save(fixes, to: url)
     }
 }
 

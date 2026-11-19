@@ -95,18 +95,8 @@ final class EditWatcher {
         self.watch = watch
     }
 
-    private func focusedElement() -> AXUIElement? {
-        var focused: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(AXUIElementCreateSystemWide(), kAXFocusedUIElementAttribute as CFString, &focused) == .success,
-              let focused, CFGetTypeID(focused) == AXUIElementGetTypeID() else { return nil }
-        return (focused as! AXUIElement)
-    }
-
-    private func isSecure(_ element: AXUIElement) -> Bool {
-        var subrole: CFTypeRef?
-        AXUIElementCopyAttributeValue(element, kAXSubroleAttribute as CFString, &subrole)
-        return (subrole as? String) == (kAXSecureTextFieldSubrole as String)
-    }
+    private func focusedElement() -> AXUIElement? { TextInjector.focusedElement() }
+    private func isSecure(_ element: AXUIElement) -> Bool { TextInjector.isSecure(element) }
 
     private func stringValue(of element: AXUIElement) -> String? {
         var value: CFTypeRef?
