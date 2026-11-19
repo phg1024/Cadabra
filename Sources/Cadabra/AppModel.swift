@@ -508,8 +508,16 @@ final class AppModel: ObservableObject {
         }
         let id = history.add(transcript, text: text)
         var refusal: TextInjector.Refusal? = .noAccess
-        if live, !typer.typed.isEmpty, typer.finish(with: text, restoreClipboard: prefs.restoreClipboard) {
-            refusal = nil
+        var leftBehind = false
+        if live, !typer.typed.isEmpty {
+            if typer.finish(with: text, restoreClipboard: prefs.restoreClipboard) {
+                refusal = nil
+            } else {
+                // Part of it is already in a field that can't be reached now: pasting all of it on top
+                // would write the start twice, so it only goes on the clipboard.
+                leftBehind = true
+                refusal = .focusMoved
+            }
         } else if prefs.autoPaste {
             typer.end()
             refusal = TextInjector.paste(text, restoreClipboard: prefs.restoreClipboard, into: target)
@@ -536,6 +544,8 @@ final class AppModel: ObservableObject {
         }
         if !isRecording {
             switch refusal {
+            case .focusMoved where leftBehind:
+                hud.flash(.message(t("输入框换了：完整结果已复制，⌘V 粘贴", "The field changed: the whole text is copied, press ⌘V"), symbol: "doc.on.clipboard"))
             case .focusMoved: hud.flash(.message(t("窗口换了，没有粘贴：已复制，⌘V 粘贴", "Focus moved, so nothing was pasted. Copied: press ⌘V"), symbol: "doc.on.clipboard"))
             case .secureField: hud.flash(.message(t("密码框里不粘贴：已复制", "Not pasted into a password field. Copied"), symbol: "lock"))
             default: hud.flash(.done(text, pasted: pasted))

@@ -59,11 +59,14 @@ enum TextInjector {
     /// Whether `text` is now in the focused field: nil when the app doesn't expose its text.
     @MainActor
     static func landed(_ text: String) -> Bool? {
-        guard let element = focusedElement() else { return nil }
-        var value: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value) == .success,
-              let value = value as? String else { return nil }
+        guard let element = focusedElement(), let value = value(of: element) else { return nil }
         return value.contains(text)
+    }
+
+    static func value(of element: AXUIElement) -> String? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &value) == .success else { return nil }
+        return value as? String
     }
 
     static func focusedElement() -> AXUIElement? {
@@ -135,7 +138,7 @@ final class LiveTyper {
     @discardableResult
     func show(_ text: String) -> Bool {
         guard !stopped else { return false }
-        guard let target, target.isStillFocused, !IsSecureEventInputEnabled(),
+        guard stillInField(), !IsSecureEventInputEnabled(),
               TextInjector.focusedElement().map(TextInjector.isSecure) != true else {
             stopped = true
             return false
@@ -144,18 +147,29 @@ final class LiveTyper {
         return true
     }
 
+    /// The same app in front and, as far as can be told, the same field. Electron apps (Slack, Claude)
+    /// hand out a new element for the focused field every time, so there the field counts as the same
+    /// while it still holds what was typed.
+    private func stillInField() -> Bool {
+        guard let target, NSWorkspace.shared.frontmostApplication?.processIdentifier == target.pid else { return false }
+        guard let original = target.element, let now = TextInjector.focusedElement() else { return true }
+        if CFEqual(original, now) { return true }
+        guard let value = TextInjector.value(of: now) else { return true }
+        return typed.isEmpty || value.contains(typed)
+    }
+
     /// Turns what was typed into `text`, if the field still has focus. The clipboard comes back as after a paste.
     @discardableResult
     func finish(with text: String, restoreClipboard: Bool) -> Bool {
         defer { end() }
-        guard !stopped, let target, target.isStillFocused else { return false }
+        guard !stopped, stillInField() else { return false }
         replace(with: text, restoreAfter: restoreClipboard ? 3 : nil)
         return true
     }
 
     /// Takes out what was typed (a cancelled or empty dictation), if the field still has focus.
     func clear() {
-        if !stopped, let target, target.isStillFocused { replace(with: "") }
+        if !stopped, stillInField() { replace(with: "") }
         end()
     }
 
