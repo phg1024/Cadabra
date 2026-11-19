@@ -162,20 +162,15 @@ struct HUDView: View {
                 ProgressView().controlSize(.small).tint(theme.barText)
                 Text(t("识别中…", "Transcribing…")).font(.system(size: 13, weight: .medium))
             }
-        case .done(let text, let pasted):
-            HStack(spacing: 10) {
+        case .done(_, let pasted):
+            // Just the outcome: the words themselves are in the field (or on the clipboard) already.
+            HStack(spacing: 8) {
                 Image(systemName: pasted ? "checkmark.circle.fill" : "doc.on.clipboard.fill")
                     .foregroundStyle(pasted ? .green : .yellow)
                     .font(.system(size: 16))
-                Text(text)
-                    .font(.system(size: 13))
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: 420, alignment: .leading)
-                    .fixedSize(horizontal: true, vertical: false)
-                if !pasted {
-                    Text(t("已复制，⌘V 粘贴", "Copied. Press ⌘V to paste")).font(.system(size: 12)).foregroundStyle(theme.barText.opacity(0.6)).fixedSize()
-                }
+                Text(pasted ? t("已输入", "Done") : t("已复制，⌘V 粘贴", "Copied. Press ⌘V to paste"))
+                    .font(.system(size: 13, weight: .medium))
+                    .fixedSize()
             }
         case .message(let text, let symbol):
             HStack(spacing: 10) {
