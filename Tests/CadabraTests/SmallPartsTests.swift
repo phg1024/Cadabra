@@ -117,6 +117,20 @@ struct HotkeyMonitorTests {
         #expect(calls.count == 3)
     }
 
+    @Test func theAgentKeyIsAThirdHotkey() {
+        let monitor = HotkeyMonitor(hotkey: .rightOption)
+        monitor.editHotkey = .rightCommand
+        monitor.agentHotkey = .rightControl
+        var calls: [String] = []
+        monitor.onAgentDown = { calls.append("agent down") }
+        monitor.onAgentUp = { calls.append("agent up") }
+        monitor.onEditDown = { calls.append("edit down") }
+        let held = CGEventFlags(rawValue: CGEventFlags.maskControl.rawValue | 0x2000)   // right ⌃
+        _ = monitor.handle(.flagsChanged, key(62, flags: held))
+        _ = monitor.handle(.flagsChanged, key(62))
+        #expect(calls == ["agent down", "agent up"])
+    }
+
     @Test func ourOwnPasteIsIgnored() {
         let monitor = HotkeyMonitor(hotkey: .rightOption)
         var chords = 0

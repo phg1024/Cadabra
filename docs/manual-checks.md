@@ -61,6 +61,14 @@ real Mac. Run through this list before a release, and after changing the file na
 - [ ] Nothing selected: "写一句感谢的话" writes at the cursor.
 - [ ] esc while the HUD says it is rewriting: nothing is pasted.
 
+## Agent key (Agent)
+
+- [ ] Settings › Agent › Test connection says connected (and that a wrong token is refused).
+- [ ] Hold the agent key, ask something: the words appear in a small window near the text; nothing
+      is sent until Return; esc closes it. The reply shows in the same window; the speaker button
+      reads it aloud (or it reads by itself with Read replies aloud on).
+- [ ] A follow-up within five minutes continues the conversation.
+
 ## Correction model (Corrector)
 
 - [ ] Download starts, shows progress, can be cancelled.

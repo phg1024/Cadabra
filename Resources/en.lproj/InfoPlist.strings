@@ -1,1 +1,2 @@
 "NSMicrophoneUsageDescription" = "Cadabra records what you say and turns it into text on this Mac. Audio never leaves this Mac.";
+"NSLocalNetworkUsageDescription" = "Cadabra sends what you say to the address set for the agent key, after you confirm it.";

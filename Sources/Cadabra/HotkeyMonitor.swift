@@ -12,6 +12,10 @@ final class HotkeyMonitor {
     var editHotkey: Hotkey? { didSet { isEditDown = false } }
     var onEditDown: (() -> Void)?
     var onEditUp: (() -> Void)?
+    /// A third key, for asking the agent; nil when turned off.
+    var agentHotkey: Hotkey? { didSet { isAgentDown = false } }
+    var onAgentDown: (() -> Void)?
+    var onAgentUp: (() -> Void)?
     /// Another key, modifier or click while the hotkey is held: the user is typing a shortcut.
     var onChord: (() -> Void)?
     /// Returns true when the esc cancelled something; it then goes no further.
@@ -24,6 +28,8 @@ final class HotkeyMonitor {
     private var source: CFRunLoopSource?
     private var isDown = false
     private var isEditDown = false
+    private var isAgentDown = false
+    private var anyDown: Bool { isDown || isEditDown || isAgentDown }
 
     init(hotkey: Hotkey) {
         self.hotkey = hotkey
@@ -55,6 +61,7 @@ final class HotkeyMonitor {
         isRunning = false
         isDown = false
         isEditDown = false
+        isAgentDown = false
     }
 
     /// Returns true to swallow the event.
@@ -83,15 +90,20 @@ final class HotkeyMonitor {
                 guard down != isEditDown else { return false }
                 isEditDown = down
                 down ? onEditDown?() : onEditUp?()
-            } else if isDown || isEditDown {
+            } else if let agent = agentHotkey, code == agent.keyCode {
+                let down = agent.isHeld(in: event.flags)
+                guard down != isAgentDown else { return false }
+                isAgentDown = down
+                down ? onAgentDown?() : onAgentUp?()
+            } else if anyDown {
                 onChord?()
             }
         case .keyDown:
             let cancelled = event.getIntegerValueField(.keyboardEventKeycode) == 53 && onEscape?() == true
-            if isDown || isEditDown { onChord?() }
+            if anyDown { onChord?() }
             return cancelled
         case .leftMouseDown, .rightMouseDown:
-            if isDown || isEditDown { onChord?() }
+            if anyDown { onChord?() }
         default:
             break
         }

@@ -169,10 +169,28 @@ final class Preferences: ObservableObject {
         didSet {
             defaults.set(hotkey.rawValue, forKey: "hotkey")
             if editHotkey == hotkey { editHotkey = nil }
+            if agentHotkey == hotkey { agentHotkey = nil }
         }
     }
     /// The key for rewriting the selection by voice (`AppModel`); nil when turned off.
-    @Published var editHotkey: Hotkey? { didSet { defaults.set(editHotkey?.rawValue ?? "off", forKey: "editHotkey") } }
+    @Published var editHotkey: Hotkey? {
+        didSet {
+            defaults.set(editHotkey?.rawValue ?? "off", forKey: "editHotkey")
+            if editHotkey != nil, agentHotkey == editHotkey { agentHotkey = nil }
+        }
+    }
+    /// The key for talking to the agent (`Agent`); nil when turned off, which it is until set.
+    @Published var agentHotkey: Hotkey? {
+        didSet {
+            defaults.set(agentHotkey?.rawValue ?? "off", forKey: "agentHotkey")
+            if agentHotkey != nil, editHotkey == agentHotkey { editHotkey = nil }
+        }
+    }
+    /// The agent's address: an endpoint that takes POST /text {"text"} and answers {"reply"}.
+    @Published var agentURL: String { didSet { defaults.set(agentURL, forKey: "agentURL") } }
+    @Published var agentName: String { didSet { defaults.set(agentName, forKey: "agentName") } }
+    /// Read the agent's replies aloud (its POST /speech).
+    @Published var agentSpeaks: Bool { didSet { defaults.set(agentSpeaks, forKey: "agentSpeaks") } }
     @Published var trigger: TriggerMode { didSet { defaults.set(trigger.rawValue, forKey: "trigger") } }
     @Published var language: Language { didSet { defaults.set(language.rawValue, forKey: "language") } }
     /// An input device's UID, or empty for automatic (the default input, but not a Bluetooth headset's).
@@ -251,7 +269,13 @@ final class Preferences: ObservableObject {
         let key = Hotkey(rawValue: defaults.string(forKey: "hotkey") ?? "") ?? .rightOption
         hotkey = key
         let edit = defaults.string(forKey: "editHotkey").map { Hotkey(rawValue: $0) } ?? .rightCommand
-        editHotkey = edit == key ? nil : edit
+        let editKey = edit == key ? nil : edit
+        editHotkey = editKey
+        let agent = defaults.string(forKey: "agentHotkey").flatMap { Hotkey(rawValue: $0) }
+        agentHotkey = agent == key || agent == editKey ? nil : agent
+        agentURL = defaults.string(forKey: "agentURL") ?? ""
+        agentName = defaults.string(forKey: "agentName") ?? "Agent"
+        agentSpeaks = defaults.bool(forKey: "agentSpeaks")
         trigger = TriggerMode(rawValue: defaults.string(forKey: "trigger") ?? "") ?? .auto
         language = Language(rawValue: defaults.string(forKey: "language") ?? "") ?? .auto
         microphone = defaults.string(forKey: "microphone") ?? ""

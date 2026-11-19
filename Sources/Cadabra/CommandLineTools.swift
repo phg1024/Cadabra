@@ -190,6 +190,13 @@ enum CommandLineTools {
                .background(Color(nsColor: .windowBackgroundColor)),
                to: dir.appendingPathComponent("welcome.png"), scheme: .light)
         render(themeGallery(history: history), to: dir.appendingPathComponent("themes.png"), scheme: .light)
+        for (name, phase) in [("confirm", Agent.Phase.confirm),
+                              ("reply", .reply(t("明天的会改到上午 10:30 了，地点不变，还在三楼会议室。要我把日历也更新一下吗？", "Tomorrow's meeting moved to 10:30, same room on the third floor. Want me to update the calendar too?")))] {
+            let agent = Agent()
+            agent.preview(t("明天的会几点", "When is tomorrow's meeting"), phase)
+            render(AgentView().environmentObject(agent).environmentObject(Preferences()).padding(20),
+                   to: dir.appendingPathComponent("agent-\(name).png"), scheme: .light)
+        }
         print("snapshots in \(dir.path)")
     }
 

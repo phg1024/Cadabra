@@ -1,1 +1,2 @@
 "NSMicrophoneUsageDescription" = "Cadabra 需要用麦克风录下你说的话，在本机识别成文字。音频不会离开这台 Mac。";
+"NSLocalNetworkUsageDescription" = "Cadabra 会在你确认后，把你说的话发给 Agent 键设置的局域网地址。";

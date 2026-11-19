@@ -7,6 +7,7 @@ struct SettingsView: View {
         TabView {
             GeneralSettings().tabItem { Label(t("通用", "General"), systemImage: "gearshape") }
             VocabularySettings().tabItem { Label(t("词汇", "Vocabulary"), systemImage: "character.book.closed") }
+            AgentSettings().tabItem { Label("Agent", systemImage: "sparkles") }
             PermissionSettings().tabItem { Label(t("权限", "Permissions"), systemImage: "lock.shield") }
             AboutSettings().tabItem { Label(t("关于", "About"), systemImage: "info.circle") }
         }
@@ -482,6 +483,59 @@ private struct CorrectEntrySheet: View {
 }
 
 /// What Cadabra has learned from the user's fixes.
+/// Where the agent key sends its words.
+struct AgentSettings: View {
+    @EnvironmentObject var prefs: Preferences
+    @State private var token = ""
+    @State private var hasToken = Keychain.hasToken
+    @State private var status: String?
+    @State private var checking = false
+
+    var body: some View {
+        Form {
+            Section {
+                Picker(t("Agent 键", "Agent key"), selection: $prefs.agentHotkey) {
+                    Text(t("关闭", "Off")).tag(Hotkey?.none)
+                    ForEach(Hotkey.allCases.filter { $0 != prefs.hotkey && $0 != prefs.editHotkey }) { Text($0.title).tag(Hotkey?.some($0)) }
+                }
+                TextField(t("名字", "Name"), text: $prefs.agentName, prompt: Text("Agent"))
+                TextField(t("地址", "Address"), text: $prefs.agentURL, prompt: Text("http://localhost:8787"))
+                LabeledContent(t("口令", "Token")) {
+                    HStack {
+                        SecureField("", text: $token, prompt: Text(hasToken ? t("已保存（填新的会替换）", "Saved (enter a new one to replace it)") : t("没有就留空", "Leave empty if none")))
+                            .labelsHidden()
+                        Button(t("保存", "Save")) {
+                            Keychain.setToken(token)
+                            hasToken = !token.isEmpty
+                            token = ""
+                        }
+                        .disabled(token.isEmpty && !hasToken)
+                    }
+                }
+                HStack {
+                    Button(t("测试连接", "Test connection")) {
+                        checking = true
+                        Task {
+                            status = await Agent.check(prefs.agentURL)
+                            checking = false
+                        }
+                    }
+                    if checking { ProgressView().controlSize(.small) }
+                    if let status { Text(status).font(.system(size: 12)).foregroundStyle(.secondary) }
+                }
+                Toggle(t("朗读回复", "Read replies aloud"), isOn: $prefs.agentSpeaks)
+            } footer: {
+                Text(t("按住 Agent 键说话，松开后识别出的文字先显示在一个小窗口里：可以改，按回车才发出去，按 esc 取消。回复显示在同一个窗口里。文字会发到这个地址（比如 POST /text，朗读用 POST /speech），对方能做什么取决于那边的 agent。口令存在钥匙串里。",
+                       "Hold the agent key and talk; when you let go, the words appear in a small window where you can edit them. Nothing is sent until you press Return; esc cancels. The reply shows in the same window. The words go to this address (for example POST /text, and POST /speech for reading aloud); what happens then is up to the agent there. The token is kept in the keychain."))
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .formStyle(.grouped)
+        .frame(height: 420)
+    }
+}
+
 /// The user's own words, and the fixes learned from their corrections.
 struct VocabularySettings: View {
     @EnvironmentObject var prefs: Preferences
