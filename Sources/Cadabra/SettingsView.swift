@@ -204,6 +204,10 @@ private struct GeneralSettings: View {
                 Picker(t("说话时显示文字", "Show the words while you talk"), selection: $prefs.livePreview) {
                     ForEach(LivePreview.allCases) { Text($0.title).tag($0) }
                 }
+                Picker(t("录音条位置", "Recording bar"), selection: $prefs.barNearText) {
+                    Text(t("在输入框旁边", "Next to the text field")).tag(true)
+                    Text(t("屏幕底部", "Bottom of the screen")).tag(false)
+                }
                 Toggle(t("登录时自动启动", "Open at login"), isOn: Binding(get: { model.launchAtLogin }, set: { model.launchAtLogin = $0 }))
                 Toggle(t("保存历史记录", "Keep history"), isOn: $prefs.saveHistory)
                 Toggle(isOn: $prefs.saveRecordings) {

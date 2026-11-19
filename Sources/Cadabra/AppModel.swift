@@ -309,6 +309,7 @@ final class AppModel: ObservableObject {
         if prefs.correction { Corrector.shared.wake() }
         editing = edit
         selection = edit ? Task { await TextInjector.selection() } : nil
+        hud.anchor = prefs.barNearText ? TextInjector.caretRect() : nil
         self.latched = latched
         isRecording = true
         recordingStart = Date()

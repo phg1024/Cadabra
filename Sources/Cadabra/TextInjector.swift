@@ -56,6 +56,46 @@ enum TextInjector {
         return await ClipboardSwap.general.copySelection() ?? ""
     }
 
+    /// Where the text is going on screen (AppKit coordinates): the line with the caret, or failing that a
+    /// field small enough to stand for it (not a whole editor). Nil when the app doesn't say.
+    @MainActor
+    static func caretRect() -> NSRect? {
+        guard NSWorkspace.shared.frontmostApplication?.processIdentifier != getpid(),
+              let element = focusedElement() else { return nil }
+        var rect: CGRect?
+        var range: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &range) == .success,
+           let range, CFGetTypeID(range) == AXValueGetTypeID() {
+            var r = CFRange()
+            if AXValueGetValue(range as! AXValue, .cfRange, &r) {
+                // An empty range often has no bounds: take the character before the caret.
+                var probe = r.length > 0 ? r : CFRange(location: max(r.location - 1, 0), length: 1)
+                if let value = AXValueCreate(.cfRange, &probe) {
+                    var bounds: CFTypeRef?
+                    if AXUIElementCopyParameterizedAttributeValue(element, kAXBoundsForRangeParameterizedAttribute as CFString, value, &bounds) == .success,
+                       let bounds, CFGetTypeID(bounds) == AXValueGetTypeID() {
+                        var b = CGRect.zero
+                        if AXValueGetValue(bounds as! AXValue, .cgRect, &b), b.height > 0 { rect = b }
+                    }
+                }
+            }
+        }
+        if rect == nil {
+            var position: CFTypeRef?, size: CFTypeRef?
+            var p = CGPoint.zero, s = CGSize.zero
+            if AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &position) == .success,
+               AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &size) == .success,
+               let position, let size, AXValueGetValue(position as! AXValue, .cgPoint, &p), AXValueGetValue(size as! AXValue, .cgSize, &s),
+               s.height > 0, s.height <= 240 {
+                rect = CGRect(origin: p, size: s)
+            }
+        }
+        // Accessibility counts from the top of the main screen; AppKit from the bottom.
+        guard let rect, let main = NSScreen.screens.first else { return nil }
+        let flipped = NSRect(x: rect.minX, y: main.frame.maxY - rect.maxY, width: rect.width, height: rect.height)
+        return NSScreen.screens.contains { $0.frame.intersects(flipped) } ? flipped : nil
+    }
+
     /// Whether `text` is now in the focused field: nil when the app doesn't expose its text.
     @MainActor
     static func landed(_ text: String) -> Bool? {

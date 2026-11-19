@@ -202,6 +202,8 @@ final class Preferences: ObservableObject {
     @Published var sounds: Bool { didSet { defaults.set(sounds, forKey: "sounds") } }
     /// Show the words recognized so far while the user talks: typed into the field, or in the recording bar.
     @Published var livePreview: LivePreview { didSet { defaults.set(livePreview.rawValue, forKey: "livePreviewMode") } }
+    /// Put the recording bar next to where the text goes rather than at the bottom of the screen.
+    @Published var barNearText: Bool { didSet { defaults.set(barNearText, forKey: "barNearText") } }
     @Published var saveHistory: Bool { didSet { defaults.set(saveHistory, forKey: "saveHistory") } }
     @Published var saveRecordings: Bool { didSet { defaults.set(saveRecordings, forKey: "saveRecordings") } }
     /// Learn from the user fixing a dictation right after it was typed.
@@ -263,6 +265,7 @@ final class Preferences: ObservableObject {
         dropTrailingPeriod = defaults.object(forKey: "dropTrailingPeriod") as? Bool ?? false
         sounds = defaults.object(forKey: "sounds") as? Bool ?? true
         livePreview = LivePreview(rawValue: defaults.string(forKey: "livePreviewMode") ?? "") ?? .field
+        barNearText = defaults.object(forKey: "barNearText") as? Bool ?? true
         saveHistory = defaults.object(forKey: "saveHistory") as? Bool ?? true
         saveRecordings = defaults.bool(forKey: "saveRecordings")
         learnFromEdits = defaults.object(forKey: "learnFromEdits") as? Bool ?? true

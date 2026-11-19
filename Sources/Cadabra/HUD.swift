@@ -24,8 +24,13 @@ final class HUDController {
     private var panel: NSPanel?
     private var hideWork: DispatchWorkItem?
     private var generation = 0
+    /// Where the text goes, in screen coordinates: the bar sits just above it (or below, without room).
+    /// Set when a recording starts; nil puts the bar at the bottom of the screen.
+    var anchor: NSRect?
 
     static let size = NSSize(width: 620, height: 96)
+    /// The bar inside the panel: its bottom edge and height (see HUDView).
+    private static let barBottom: CGFloat = 14, barHeight: CGFloat = 46, gap: CGFloat = 8
 
     func show(_ kind: HUDState.Kind) {
         hideWork?.cancel()
@@ -86,10 +91,24 @@ final class HUDController {
     }
 
     private func place(_ panel: NSPanel) {
+        if let anchor, let frame = NSScreen.screens.first(where: { $0.frame.intersects(anchor) })?.visibleFrame {
+            panel.setFrameOrigin(Self.origin(near: anchor, in: frame))
+            return
+        }
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
         guard let frame = screen?.visibleFrame else { return }
         panel.setFrameOrigin(NSPoint(x: frame.midX - Self.size.width / 2, y: frame.minY + 36))
+    }
+
+    /// The panel's origin with the bar just above `anchor`, or below it when the screen ends first,
+    /// centred on it and kept on the screen.
+    static func origin(near anchor: NSRect, in frame: NSRect) -> NSPoint {
+        var y = anchor.maxY + gap - barBottom
+        if y + barBottom + barHeight > frame.maxY { y = anchor.minY - gap - barHeight - barBottom }
+        y = min(max(y, frame.minY - barBottom), frame.maxY - barBottom - barHeight)
+        let x = min(max(anchor.midX - size.width / 2, frame.minX), frame.maxX - size.width)
+        return NSPoint(x: x, y: y)
     }
 }
 

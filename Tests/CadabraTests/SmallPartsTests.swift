@@ -129,3 +129,28 @@ struct HotkeyMonitorTests {
         #expect(chords == 0)
     }
 }
+
+@MainActor
+struct HUDPlacementTests {
+    let screen = NSRect(x: 0, y: 0, width: 1512, height: 944)
+
+    @Test func justAboveTheText() {
+        let caret = NSRect(x: 700, y: 400, width: 2, height: 18)
+        let origin = HUDController.origin(near: caret, in: screen)
+        #expect(origin.y + 14 == caret.maxY + 8)   // the bar's bottom edge, 8 pt above the line
+        #expect(abs(origin.x + HUDController.size.width / 2 - caret.midX) < 1)
+    }
+
+    @Test func belowWhenTheScreenEndsFirst() {
+        let caret = NSRect(x: 700, y: 920, width: 2, height: 18)
+        let origin = HUDController.origin(near: caret, in: screen)
+        #expect(origin.y + 14 + 46 == caret.minY - 8)   // the bar's top edge, 8 pt below
+    }
+
+    @Test func keptOnTheScreen() {
+        let caret = NSRect(x: 5, y: 400, width: 2, height: 18)
+        #expect(HUDController.origin(near: caret, in: screen).x == 0)
+        let right = NSRect(x: 1500, y: 400, width: 2, height: 18)
+        #expect(HUDController.origin(near: right, in: screen).x == screen.maxX - HUDController.size.width)
+    }
+}
