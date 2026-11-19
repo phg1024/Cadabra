@@ -142,8 +142,7 @@ enum CommandLineTools {
             let state = HUDState()
             state.kind = kind
             let view = HUDView().environmentObject(state).environmentObject(model).environmentObject(model.prefs)
-                .background(Color(white: 0.55))
-            render(view, to: dir.appendingPathComponent("hud-\(name).png"), scheme: .dark)
+            render(view, to: dir.appendingPathComponent("hud-\(name).png"), scheme: .dark, transparent: true)
         }
 
         let settingsModel = AppModel.preview(history: history)
@@ -193,11 +192,15 @@ enum CommandLineTools {
 
     /// Draws through a real (offscreen) window, so AppKit-backed controls such as pickers render too.
     @MainActor
-    private static func render<V: View>(_ view: V, to url: URL, scheme: ColorScheme) {
+    private static func render<V: View>(_ view: V, to url: URL, scheme: ColorScheme, transparent: Bool = false) {
         let host = NSHostingView(rootView: view)
         let size = host.fittingSize
         let window = NSWindow(contentRect: NSRect(origin: NSPoint(x: -10000, y: -10000), size: size),
                               styleMask: .borderless, backing: .buffered, defer: false)
+        if transparent {
+            window.isOpaque = false
+            window.backgroundColor = .clear
+        }
         window.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
         window.contentView = host
         host.frame = NSRect(origin: .zero, size: size)
