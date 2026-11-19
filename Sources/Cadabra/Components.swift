@@ -8,9 +8,8 @@ enum Brand {
 }
 
 /// The mark inside the app icon, drawn on a unit tile: five sound bars, a magic wand with a star on its tip,
-/// and a few stars (see docs/visual-language.md). `small` keeps the bars and one star, for 32 points and less.
+/// and a few stars (see docs/visual-language.md). The same at every size, down to the menu bar.
 struct MagicMark: View {
-    var small = false
     var bars: Color = .white
 
     static let gold = Color(hex: 0xF7C548)
@@ -22,27 +21,23 @@ struct MagicMark: View {
             let s = size.width
             func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
             // The bars, a little left of center to leave room for the wand.
-            let heights: [CGFloat] = small ? [0.22, 0.40, 0.62, 0.40, 0.22] : [0.18, 0.33, 0.55, 0.33, 0.18]
-            let width: CGFloat = small ? 0.10 : 0.078
-            let xs: [CGFloat] = small ? [0.20, 0.335, 0.47, 0.605, 0.74] : [0.21, 0.338, 0.466, 0.594, 0.722]
-            let mid: CGFloat = small ? 0.53 : 0.505
+            let heights: [CGFloat] = [0.18, 0.33, 0.55, 0.33, 0.18]
+            let width: CGFloat = 0.078
+            let xs: [CGFloat] = [0.21, 0.338, 0.466, 0.594, 0.722]
+            let mid: CGFloat = 0.505
             for (x, h) in zip(xs, heights) {
                 let rect = CGRect(x: (x - width / 2) * s, y: (mid - h / 2) * s, width: width * s, height: h * s)
                 context.fill(Path(roundedRect: rect, cornerRadius: width * s / 2), with: .color(bars))
             }
-            if small {
-                Self.star(&context, center: p(0.80, 0.22), radius: 0.13 * s)
-            } else {
-                var wand = Path()
-                wand.move(to: p(0.646, 0.807))
-                wand.addLine(to: p(0.885, 0.50))
-                context.stroke(wand, with: .color(Self.wand), style: StrokeStyle(lineWidth: 0.042 * s, lineCap: .round))
-                Self.star(&context, center: p(0.895, 0.465), radius: 0.068 * s)
-                Self.star(&context, center: p(0.80, 0.19), radius: 0.046 * s)
-                Self.star(&context, center: p(0.255, 0.78), radius: 0.036 * s)
-                for (x, y, r) in [(0.20, 0.25, 0.016), (0.75, 0.33, 0.013)] as [(CGFloat, CGFloat, CGFloat)] {
-                    context.fill(Path(ellipseIn: CGRect(x: (x - r) * s, y: (y - r) * s, width: 2 * r * s, height: 2 * r * s)), with: .color(Self.gold))
-                }
+            var wand = Path()
+            wand.move(to: p(0.646, 0.807))
+            wand.addLine(to: p(0.885, 0.50))
+            context.stroke(wand, with: .color(Self.wand), style: StrokeStyle(lineWidth: max(0.042 * s, 1.3), lineCap: .round))  // still a line at menu-bar size
+            Self.star(&context, center: p(0.895, 0.465), radius: 0.068 * s)
+            Self.star(&context, center: p(0.80, 0.19), radius: 0.046 * s)
+            Self.star(&context, center: p(0.255, 0.78), radius: 0.036 * s)
+            for (x, y, r) in [(0.20, 0.25, 0.016), (0.75, 0.33, 0.013)] as [(CGFloat, CGFloat, CGFloat)] {
+                context.fill(Path(ellipseIn: CGRect(x: (x - r) * s, y: (y - r) * s, width: 2 * r * s, height: 2 * r * s)), with: .color(Self.gold))
             }
         }
     }
@@ -65,12 +60,12 @@ struct MagicMark: View {
 
 struct AppGlyph: View {
     var size: CGFloat
-    @Environment(\.theme) private var theme
 
     var body: some View {
+        // The logo keeps its own colors whatever the theme.
         RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-            .fill(theme.gradient)
-            .overlay(MagicMark(small: size <= 32, bars: theme.onAccent))
+            .fill(Brand.gradient)
+            .overlay(MagicMark())
             .frame(width: size, height: size)
     }
 }
