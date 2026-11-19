@@ -8,7 +8,7 @@ struct HistoryEntry: Codable, Identifiable, Hashable {
     var latency: Double
 }
 
-/// Dictation history in ~/Library/Application Support/MyWisper/history.json (owner-only).
+/// Dictation history in ~/Library/Application Support/Cadabra/history.json (owner-only).
 final class HistoryStore: ObservableObject {
     static let shared = HistoryStore()
     static let limit = 500
@@ -31,7 +31,7 @@ final class HistoryStore: ObservableObject {
 
     static func defaultURL() -> URL? {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("MyWisper/history.json")
+            .appendingPathComponent("Cadabra/history.json")
     }
 
     @discardableResult

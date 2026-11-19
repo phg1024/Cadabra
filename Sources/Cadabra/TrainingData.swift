@@ -21,12 +21,12 @@ struct TrainingSample: Codable, Identifiable {
     var label: Label
 }
 
-/// ~/Library/Application Support/MyWisper/Training/: one WAV per dictation and samples.json (owner-only).
+/// ~/Library/Application Support/Cadabra/Training/: one WAV per dictation and samples.json (owner-only).
 @MainActor
 final class TrainingData: ObservableObject {
     static let shared = TrainingData()
     nonisolated static let defaultDirectory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("MyWisper/Training")
+        .appendingPathComponent("Cadabra/Training")
 
     @Published private(set) var samples: [TrainingSample] = []
     let directory: URL
@@ -54,7 +54,7 @@ final class TrainingData: ObservableObject {
             try AudioFile.wav(audio).write(to: url, options: .atomic)
             try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         } catch {
-            NSLog("MyWisper: could not save training audio: \(error)")
+            NSLog("Cadabra: could not save training audio: \(error)")
             return
         }
         samples.append(TrainingSample(id: id, date: Date(), audio: name,

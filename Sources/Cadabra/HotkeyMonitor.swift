@@ -3,7 +3,7 @@ import Foundation
 
 /// Watches one modifier key system-wide through a Quartz event tap on the main run loop,
 /// so every callback arrives on the main thread. Events pass through untouched, except an esc that
-/// cancelled a recording: it was meant for MyWisper, not for the app in front (Vim, a dialog).
+/// cancelled a recording: it was meant for Cadabra, not for the app in front (Vim, a dialog).
 final class HotkeyMonitor {
     var hotkey: Hotkey { didSet { isDown = false } }
     var onDown: (() -> Void)?

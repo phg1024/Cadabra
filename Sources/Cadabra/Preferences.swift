@@ -127,7 +127,7 @@ enum Language: String, CaseIterable, Identifiable {
     }
 }
 
-/// The language of MyWisper's own windows, menus and messages (not what it recognizes).
+/// The language of Cadabra's own windows, menus and messages (not what it recognizes).
 enum UILanguage: String, CaseIterable, Identifiable {
     case system, zh, en
 

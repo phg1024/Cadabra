@@ -5,7 +5,7 @@ non-blank frame a token; the frame's encoder output is the key, the token the va
 recording, every frame the model would emit a token on looks up its nearest keys and mixes their tokens
 into the model's distribution, weighted by how close they are.
 
-    python knn_ctc.py            # leave-one-out on ~/Library/Application Support/MyWisper/Recordings
+    python knn_ctc.py            # leave-one-out on ~/Library/Application Support/Cadabra/Recordings
 """
 import re
 import sys

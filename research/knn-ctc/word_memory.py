@@ -136,7 +136,7 @@ class Decoded:
 def training_data(sv: SenseVoice):
     """The app's own training samples: the reference is the text the user ended up with, the words are
     the ones the app learned from their corrections (learned.json)."""
-    support = Path.home() / "Library/Application Support/MyWisper"
+    support = Path.home() / "Library/Application Support/Cadabra"
     learned = [(f["heard"], f["meant"]) for f in json.loads((support / "learned.json").read_text())]
     data = []
     for s in json.loads((support / "Training/samples.json").read_text()):

@@ -9,15 +9,15 @@ let vendorLib = "\(root)/Vendor/sherpa-onnx/lib"
 let llamaLib = "\(root)/Vendor/llama/lib"
 
 let package = Package(
-    name: "MyWisper",
+    name: "Cadabra",
     platforms: [.macOS(.v15)],
     targets: [
         .systemLibrary(name: "CSherpaOnnx", path: "Sources/CSherpaOnnx"),
         .systemLibrary(name: "CLlama", path: "Sources/CLlama"),
         .executableTarget(
-            name: "MyWisper",
+            name: "Cadabra",
             dependencies: ["CSherpaOnnx", "CLlama"],
-            path: "Sources/MyWisper",
+            path: "Sources/Cadabra",
             linkerSettings: [
                 .unsafeFlags([
                     "-L\(vendorLib)",
@@ -32,9 +32,9 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "MyWisperTests",
-            dependencies: ["MyWisper"],
-            path: "Tests/MyWisperTests"
+            name: "CadabraTests",
+            dependencies: ["Cadabra"],
+            path: "Tests/CadabraTests"
         ),
     ],
     swiftLanguageModes: [.v5]

@@ -22,7 +22,7 @@ struct LearnedFix: Codable, Identifiable, Hashable {
     }
 }
 
-/// Fixes learned from the user's own corrections, in ~/Library/Application Support/MyWisper/learned.json
+/// Fixes learned from the user's own corrections, in ~/Library/Application Support/Cadabra/learned.json
 /// (owner-only). Only the changed words are kept, never the text around them.
 final class LearnedFixes: ObservableObject {
     static let shared = LearnedFixes()
@@ -41,11 +41,11 @@ final class LearnedFixes: ObservableObject {
         }
     }
 
-    /// MYWISPER_LEARNED: another file, for trying things out from the command line.
+    /// CADABRA_LEARNED: another file, for trying things out from the command line.
     static func defaultURL() -> URL? {
-        if let path = ProcessInfo.processInfo.environment["MYWISPER_LEARNED"] { return URL(fileURLWithPath: path) }
+        if let path = ProcessInfo.processInfo.environment["CADABRA_LEARNED"] { return URL(fileURLWithPath: path) }
         return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first?
-            .appendingPathComponent("MyWisper/learned.json")
+            .appendingPathComponent("Cadabra/learned.json")
     }
 
     /// Learns from the user turning `typed` into `edited`. Returns the fixes it recorded.

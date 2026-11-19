@@ -1,5 +1,5 @@
 import Testing
-@testable import MyWisper
+@testable import Cadabra
 
 struct TextDiffTests {
     func fixes(_ typed: String, _ edited: String) -> [String] {

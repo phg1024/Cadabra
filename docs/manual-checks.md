@@ -15,7 +15,7 @@ real Mac. Run through this list before a release, and after changing the file na
 
 ## Microphones (Microphones, AudioRecorder)
 
-- [ ] `MyWisper --microphones` lists the inputs and marks the one Automatic picks.
+- [ ] `Cadabra --microphones` lists the inputs and marks the one Automatic picks.
 - [ ] With AirPods connected and Automatic: recording starts at once (`--record 3 out.wav` prints
       "opened in" well under a second) and music in the AirPods doesn't turn muffled.
 - [ ] AirPods picked explicitly: it records from them (after the switch to call mode).
@@ -41,7 +41,7 @@ real Mac. Run through this list before a release, and after changing the file na
 - [ ] Download starts, shows progress, can be cancelled.
 - [ ] Switching to the other model mid-download cancels it and shows the new model's state.
 - [ ] With correction on, the menu says the model is ready; a dictation with a learned term comes
-      out corrected. `MYWISPER_LLM_TESTS=1 swift test` passes.
+      out corrected. `CADABRA_LLM_TESTS=1 swift test` passes.
 
 ## Build (build.sh)
 

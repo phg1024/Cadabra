@@ -2,11 +2,11 @@ import AppKit
 import SwiftUI
 
 /// Headless modes, used by build.sh and for testing without the menu bar:
-///   MyWisper --transcribe a.wav [b.wav ...] [--language zh]
-///   MyWisper --snapshot <dir> [en|zh]  renders the main views to PNG
-///   MyWisper --make-icon <dir.iconset>
-///   MyWisper --microphones             lists the inputs and the one a recording would use
-///   MyWisper --record <seconds> <out.wav> [microphone UID]   records like the hotkey does
+///   Cadabra --transcribe a.wav [b.wav ...] [--language zh]
+///   Cadabra --snapshot <dir> [en|zh]  renders the main views to PNG
+///   Cadabra --make-icon <dir.iconset>
+///   Cadabra --microphones             lists the inputs and the one a recording would use
+///   Cadabra --record <seconds> <out.wav> [microphone UID]   records like the hotkey does
 enum CommandLineTools {
     static func run(_ args: [String]) -> Bool {
         guard args.count > 1 else { return false }
@@ -55,9 +55,9 @@ enum CommandLineTools {
         var language = Language.auto
         let correct = files.contains("--correct")
         files.removeAll { $0 == "--correct" }
-        let vocabulary = ProcessInfo.processInfo.environment["MYWISPER_VOCABULARY"] ?? ""
+        let vocabulary = ProcessInfo.processInfo.environment["CADABRA_VOCABULARY"] ?? ""
         if correct {
-            // MYWISPER_LLM_MODEL=/path/to/model.gguf, or the downloaded recommended model.
+            // CADABRA_LLM_MODEL=/path/to/model.gguf, or the downloaded recommended model.
             do { try Corrector.shared.loadForCommandLine(.recommended) } catch { print("correction model: \(error.localizedDescription)"); exit(1) }
         }
         if let i = files.firstIndex(of: "--language"), i + 1 < files.count {

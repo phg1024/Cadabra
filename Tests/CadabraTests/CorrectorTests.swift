@@ -1,5 +1,5 @@
 import Testing
-@testable import MyWisper
+@testable import Cadabra
 
 /// The checks around the language model's answer; the model itself is in ModelTests.
 struct CorrectorTests {

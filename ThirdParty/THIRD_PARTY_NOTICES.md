@@ -1,6 +1,6 @@
 # Third-party notices
 
-MyWisper bundles the following third-party components.
+Cadabra bundles the following third-party components.
 
 ## SenseVoice-Small speech recognition model
 

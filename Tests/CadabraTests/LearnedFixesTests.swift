@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MyWisper
+@testable import Cadabra
 
 struct LearnedFixesTests {
     let url = FileManager.default.temporaryDirectory.appendingPathComponent("learned-\(UUID().uuidString).json")

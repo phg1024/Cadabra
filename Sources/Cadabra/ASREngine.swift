@@ -25,14 +25,14 @@ enum ASRError: LocalizedError {
 final class ASREngine: @unchecked Sendable {
     static let sampleRate = 16000
 
-    private let queue = DispatchQueue(label: "MyWisper.asr", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "Cadabra.asr", qos: .userInitiated)
     private var recognizer: OpaquePointer?
     private var loadError: Error?
 
-    /// The bundled model, or MYWISPER_MODEL_DIR, or models/ in the current directory (for `swift run`).
+    /// The bundled model, or CADABRA_MODEL_DIR, or models/ in the current directory (for `swift run`).
     static func defaultModelDirectory() -> URL? {
         var candidates: [URL] = []
-        if let env = ProcessInfo.processInfo.environment["MYWISPER_MODEL_DIR"] {
+        if let env = ProcessInfo.processInfo.environment["CADABRA_MODEL_DIR"] {
             candidates.append(URL(fileURLWithPath: env))
         }
         if let resources = Bundle.main.resourceURL {

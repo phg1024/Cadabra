@@ -398,7 +398,7 @@ final class AppModel: ObservableObject {
             do {
                 if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
             } catch {
-                NSLog("MyWisper login item: \(error)")
+                NSLog("Cadabra login item: \(error)")
             }
         }
     }

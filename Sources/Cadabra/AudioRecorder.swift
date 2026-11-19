@@ -20,7 +20,7 @@ final class AudioRecorder: @unchecked Sendable {
     private var resampler: Resampler?
     private var meter = LevelMeter(sampleRate: 16000)
     /// Converts off the audio thread, in order.
-    private let queue = DispatchQueue(label: "com.peihongguo.MyWisper.recorder")
+    private let queue = DispatchQueue(label: "com.peihongguo.Cadabra.recorder")
     private let lock = NSLock()
     private var samples: [Float] = []
 
@@ -210,11 +210,11 @@ enum AudioFile {
 }
 
 /// Optional copies of dictations, for comparing recognizers on real speech: each one is a WAV plus a
-/// JSON file with what SenseVoice heard, in ~/Library/Application Support/MyWisper/Recordings
+/// JSON file with what SenseVoice heard, in ~/Library/Application Support/Cadabra/Recordings
 /// (owner-only). Off by default; nothing here ever leaves the Mac.
 enum RecordingArchive {
     static let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("MyWisper/Recordings")
+        .appendingPathComponent("Cadabra/Recordings")
 
     static func save(_ samples: [Float], recognized: String, corrected: String?, typed: String,
                      language: Language) {
@@ -234,7 +234,7 @@ enum RecordingArchive {
                 try JSONSerialization.data(withJSONObject: info, options: [.prettyPrinted, .sortedKeys])
                     .write(to: base.appendingPathExtension("json"))
             } catch {
-                NSLog("MyWisper: could not save recording: \(error)")
+                NSLog("Cadabra: could not save recording: \(error)")
             }
         }
     }

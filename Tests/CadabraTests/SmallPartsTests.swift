@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import MyWisper
+@testable import Cadabra
 
 struct RepeatedEndingTests {
     @Test func dropsARepeatedEnding() {

@@ -2,7 +2,7 @@ import AppKit
 import ApplicationServices
 import os
 
-private let log = Logger(subsystem: "com.peihongguo.MyWisper", category: "learning")
+private let log = Logger(subsystem: "com.peihongguo.Cadabra", category: "learning")
 
 /// After a paste, watches the text field it went into for a little while. If the user fixes words in
 /// what was just typed, reports the typed and fixed text. Reads only the focused field, through

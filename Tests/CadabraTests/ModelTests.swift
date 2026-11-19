@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import MyWisper
+@testable import Cadabra
 
 /// Runs the real models; skipped when they aren't on this Mac (./fetch-deps.sh, or the app's Download).
 struct SpeechModelTests {
@@ -33,8 +33,8 @@ struct SpeechModelTests {
     ]
 }
 
-/// The correction model on cases that went wrong before. Loads tens of GB, so only with MYWISPER_LLM_TESTS=1.
-@Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["MYWISPER_LLM_TESTS"] == "1"))
+/// The correction model on cases that went wrong before. Loads tens of GB, so only with CADABRA_LLM_TESTS=1.
+@Suite(.serialized, .enabled(if: ProcessInfo.processInfo.environment["CADABRA_LLM_TESTS"] == "1"))
 struct CorrectionModelTests {
     static let corrector: Corrector? = {
         guard let model = CorrectionModel.allCases.first(where: \.isDownloaded),

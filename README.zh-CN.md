@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/images/about-zh.png" width="420" alt="MyWisper">
+  <img src="docs/images/about-zh.png" width="420" alt="Cadabra">
 </p>
 
-<h1 align="center">MyWisper</h1>
+<h1 align="center">Cadabra</h1>
 
 <p align="center">
   <b>按住一个键说话，松开后文字出现在光标处。全部在你的 Mac 上完成。</b><br>
@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/phg1024/MyWisper/releases/latest"><img alt="下载" src="https://img.shields.io/github/v/release/phg1024/MyWisper?label=%E4%B8%8B%E8%BD%BD&color=6a5cf5&cacheSeconds=3600"></a>
+  <a href="https://github.com/phg1024/Cadabra/releases/latest"><img alt="下载" src="https://img.shields.io/github/v/release/phg1024/Cadabra?label=%E4%B8%8B%E8%BD%BD&color=6a5cf5&cacheSeconds=3600"></a>
   <img alt="macOS 15+" src="https://img.shields.io/badge/macOS-15%2B-black?logo=apple">
   <img alt="Apple 芯片" src="https://img.shields.io/badge/Apple%20%E8%8A%AF%E7%89%87-%E5%BF%85%E9%9C%80-black">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
@@ -18,7 +18,7 @@
   <a href="https://buymeacoffee.com/phg1024"><img alt="请我喝咖啡" src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black"></a>
 </p>
 
-MyWisper 是 macOS 菜单栏上的语音输入工具。按住快捷键（默认右 Option）说话，松开，文字就输入到你正在用的 App 里。语音识别用 [SenseVoice-Small](https://github.com/FunAudioLLM/SenseVoice)，经 [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) 在本机运行：不用注册账号，不走云端，完全不联网。
+Cadabra（1.2 之前叫 MyWisper）是 macOS 菜单栏上的语音输入工具。按住快捷键（默认右 Option）说话，松开，文字就输入到你正在用的 App 里。语音识别用 [SenseVoice-Small](https://github.com/FunAudioLLM/SenseVoice)，经 [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) 在本机运行：不用注册账号，不走云端，完全不联网。
 
 - **中文、英文、粤语、日语、韩语**，一句话里中英混说也行，自动识别语言。
 - **快**：几秒钟的话，在 Apple 芯片上约 50 毫秒出字。
@@ -36,9 +36,9 @@ MyWisper 是 macOS 菜单栏上的语音输入工具。按住快捷键（默认�
 
 ## 安装
 
-1. 从 [Releases](https://github.com/phg1024/MyWisper/releases/latest) 下载 `MyWisper-x.y.z.dmg`，打开后把 **MyWisper** 拖进「应用程序」。
-2. **第一次打开**：MyWisper 还没有用 Apple 开发者证书签名，所以第一次打开时 macOS 会拦下来（提示「Apple 无法验证…」）。点「完成」，然后打开 **系统设置 › 隐私与安全性**，往下拉到「安全性」，点 MyWisper 旁边的 **仍要打开**。只需要做一次。
-   <br>或者在终端里运行：`xattr -dr com.apple.quarantine /Applications/MyWisper.app`
+1. 从 [Releases](https://github.com/phg1024/Cadabra/releases/latest) 下载 `Cadabra-x.y.z.dmg`，打开后把 **Cadabra** 拖进「应用程序」。
+2. **第一次打开**：Cadabra 还没有用 Apple 开发者证书签名，所以第一次打开时 macOS 会拦下来（提示「Apple 无法验证…」）。点「完成」，然后打开 **系统设置 › 隐私与安全性**，往下拉到「安全性」，点 Cadabra 旁边的 **仍要打开**。只需要做一次。
+   <br>或者在终端里运行：`xattr -dr com.apple.quarantine /Applications/Cadabra.app`
 3. 欢迎窗口会请你授权两项：
    - **麦克风**：听你说话。
    - **辅助功能**：全局快捷键，以及把文字粘贴到光标处（模拟按 ⌘V）。
@@ -51,18 +51,18 @@ MyWisper 是 macOS 菜单栏上的语音输入工具。按住快捷键（默认�
 - **自适应**（默认）：按住快捷键说话、松开结束；或者短按一下开始，说完再按一下结束。
 - 也可以换成左 Option、右 Command、左 / 右 Control 或 Fn。最省事的是 设置 › 通用 › **按键设置…**，然后直接按你想用的键。（用 Fn 的话，要在 系统设置 › 键盘 里把「按下 🌐 键时」设成「无操作」。）
 - 按下快捷键约 0.12 秒后才开麦，所以 ⌃C、⌥E 这类组合键不会触发录音；按着快捷键时又按了别的键，这次录音会作废。录音时按 **esc** 取消。
-- 戴着 AirPods 之类的蓝牙耳机时，MyWisper 用电脑（或摄像头）的麦克风录音，耳机只管放声音：用耳机的麦克风要先切到通话模式，开始录音会慢好几秒，耳机里的声音也会变闷。想指定麦克风，在 设置 › 通用 › 麦克风 里选。
+- 戴着 AirPods 之类的蓝牙耳机时，Cadabra 用电脑（或摄像头）的麦克风录音，耳机只管放声音：用耳机的麦克风要先切到通话模式，开始录音会慢好几秒，耳机里的声音也会变闷。想指定麦克风，在 设置 › 通用 › 麦克风 里选。
 - 没有辅助功能权限时，识别结果只复制到剪贴板。
 - 菜单栏弹窗里有最近的几条结果（点一下复制）；完整的历史在 **全部记录** 里，可以搜索。
-- **越用越准**：文字输入后两分钟内在原处改掉识别错的词，或者在 全部记录 里右键一条 › 改正，MyWisper 都会记住。同样的错改过两次，以后就自动改好；纠错模型也会参考你改过的地方。学到了什么在 设置 › 通用 › 学习 里看。
+- **越用越准**：文字输入后两分钟内在原处改掉识别错的词，或者在 全部记录 里右键一条 › 改正，Cadabra 都会记住。同样的错改过两次，以后就自动改好；纠错模型也会参考你改过的地方。学到了什么在 设置 › 通用 › 学习 里看。
 - 界面语言：设置 › 通用 › **界面语言 / Language**（跟随系统、简体中文、English）。
 
 ## 隐私
 
-- 你说的话不会上网。唯一的联网是可选的：打开 **纠错**（设置 › 通用）并点「下载」后，MyWisper 从 Hugging Face 下载一次 Qwen 模型（固定版本，校验 SHA-256）。纠错本身在 App 里用 llama.cpp 运行。除此之外 MyWisper 不建立任何连接，可以用 `lsof -i -a -p $(pgrep -x MyWisper)` 自己查。
+- 你说的话不会上网。唯一的联网是可选的：打开 **纠错**（设置 › 通用）并点「下载」后，Cadabra 从 Hugging Face 下载一次 Qwen 模型（固定版本，校验 SHA-256）。纠错本身在 App 里用 llama.cpp 运行。除此之外 Cadabra 不建立任何连接，可以用 `lsof -i -a -p $(pgrep -x Cadabra)` 自己查。
 - 用沙箱禁掉网络后识别结果完全一样，模型就在 App 里。
 - 识别出的文字写进剪贴板时标成「仅本机」，不会经「通用剪贴板」同步到你的其他设备。粘贴后会恢复原来的剪贴板（可以关掉）。
-- 存在磁盘上的只有：历史记录 `~/Library/Application Support/MyWisper/history.json`（只有你能读，可以关掉或清空）、从你的改正里学到的词 `learned.json`（只有改动的词）和偏好设置。打开 设置 › 通用 › **保存录音，用来训练语音模型** 后，每次听写的录音和最后的文字会存在 `Training/` 里，用来让模型适应你的声音。录音不会写到磁盘，除非你打开了 设置 › 通用 › **保存录音**（排查识别问题时用，存在历史记录旁边的 `Recordings/` 里）。
+- 存在磁盘上的只有：历史记录 `~/Library/Application Support/Cadabra/history.json`（只有你能读，可以关掉或清空）、从你的改正里学到的词 `learned.json`（只有改动的词）和偏好设置。打开 设置 › 通用 › **保存录音，用来训练语音模型** 后，每次听写的录音和最后的文字会存在 `Training/` 里，用来让模型适应你的声音。录音不会写到磁盘，除非你打开了 设置 › 通用 › **保存录音**（排查识别问题时用，存在历史记录旁边的 `Recordings/` 里）。
 - 「关于」页里的 GitHub、Sponsor、Buy Me a Coffee 按钮，只有你点了才会用浏览器打开。
 
 ## 从源码构建
@@ -70,24 +70,24 @@ MyWisper 是 macOS 菜单栏上的语音输入工具。按住快捷键（默认�
 需要 Apple 芯片的 Mac，装好 Xcode（或 Command Line Tools）。
 
 ```bash
-git clone https://github.com/phg1024/MyWisper.git && cd MyWisper
+git clone https://github.com/phg1024/Cadabra.git && cd Cadabra
 ./fetch-deps.sh        # 下载 sherpa-onnx 2.0.1 的库、从源码编译 llama.cpp 到 Vendor/，SenseVoice 模型到 models/（约 1GB）
-./build.sh install     # 生成 build/MyWisper.app 并复制到 ~/Applications
+./build.sh install     # 生成 build/Cadabra.app 并复制到 ~/Applications
 ```
 
 第一次构建会在 `.signing/` 生成一张自签名的代码签名证书（不进 git）。macOS 把麦克风和辅助功能权限跟这张证书绑定，所以以后重新构建权限都还在。别删它。
 
-测试：`swift test`（几秒钟，`build.sh` 会先跑一遍）。`MYWISPER_LLM_TESTS=1 swift test` 还会让纠错模型跑一遍以前出过错的例子（要先在设置里下载模型）。没法自动测的部分（热键、粘贴、麦克风）见 [docs/manual-checks.md](docs/manual-checks.md)。
+测试：`swift test`（几秒钟，`build.sh` 会先跑一遍）。`CADABRA_LLM_TESTS=1 swift test` 还会让纠错模型跑一遍以前出过错的例子（要先在设置里下载模型）。没法自动测的部分（热键、粘贴、麦克风）见 [docs/manual-checks.md](docs/manual-checks.md)。
 
-其他：`MyWisper --transcribe a.wav [--language zh]` 识别音频文件；`MyWisper --snapshot <目录> [en|zh]` 把界面渲染成 PNG。`./release.sh 1.0.0` 生成发布用的 DMG（钥匙串里有 Developer ID 证书时会自动公证）。
+其他：`Cadabra --transcribe a.wav [--language zh]` 识别音频文件；`Cadabra --snapshot <目录> [en|zh]` 把界面渲染成 PNG。`./release.sh 1.0.0` 生成发布用的 DMG（钥匙串里有 Developer ID 证书时会自动公证）。
 
 ## 支持
 
-MyWisper 是免费的。如果它帮你省了打字的时间，欢迎 [在 GitHub 上赞助](https://github.com/sponsors/phg1024) 或者 [请我喝杯咖啡](https://buymeacoffee.com/phg1024)。问题和建议请提到 [Issues](https://github.com/phg1024/MyWisper/issues)。
+Cadabra 是免费的。如果它帮你省了打字的时间，欢迎 [在 GitHub 上赞助](https://github.com/sponsors/phg1024) 或者 [请我喝杯咖啡](https://buymeacoffee.com/phg1024)。问题和建议请提到 [Issues](https://github.com/phg1024/Cadabra/issues)。
 
 ## 致谢和许可证
 
-MyWisper 以 [MIT 许可证](LICENSE) 发布。
+Cadabra 以 [MIT 许可证](LICENSE) 发布。
 
 - 语音模型：**SenseVoice-Small**，来自 FunAudioLLM（阿里巴巴通义实验室），遵循 [FunASR 模型开源协议 1.1](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE)；ONNX 版本由 sherpa-onnx 项目转换。
 - [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx)（Apache-2.0）和 [ONNX Runtime](https://github.com/microsoft/onnxruntime)（MIT）。

@@ -4,12 +4,33 @@ import SwiftUI
 @main
 enum Entry {
     static func main() {
+        Rename.fromMyWisper()
         if CommandLineTools.run(CommandLine.arguments) { return }
-        MyWisperApp.main()
+        CadabraApp.main()
     }
 }
 
-struct MyWisperApp: App {
+/// The app was called MyWisper (com.peihongguo.MyWisper) until 1.2. Its folder in Application Support
+/// (models, recordings, training data, learned fixes, history) is moved over, and its settings copied,
+/// the first time Cadabra starts.
+enum Rename {
+    static func fromMyWisper() {
+        let files = FileManager.default
+        let support = files.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let old = support.appendingPathComponent("MyWisper"), new = support.appendingPathComponent("Cadabra")
+        if files.fileExists(atPath: old.path), !files.fileExists(atPath: new.path) {
+            do { try files.moveItem(at: old, to: new) } catch { NSLog("Cadabra: could not move \(old.path): \(error)") }
+        }
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: "copiedMyWisperSettings") else { return }
+        for (key, value) in defaults.persistentDomain(forName: "com.peihongguo.MyWisper") ?? [:] where defaults.object(forKey: key) == nil {
+            defaults.set(value, forKey: key)
+        }
+        defaults.set(true, forKey: "copiedMyWisperSettings")
+    }
+}
+
+struct CadabraApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var model = AppModel.shared
     @StateObject private var prefs = Preferences.shared

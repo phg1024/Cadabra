@@ -1,9 +1,9 @@
 import Foundation
 import Testing
-@testable import MyWisper
+@testable import Cadabra
 
 func temporaryDirectory() -> URL {
-    FileManager.default.temporaryDirectory.appendingPathComponent("MyWisperTests-\(UUID().uuidString)")
+    FileManager.default.temporaryDirectory.appendingPathComponent("CadabraTests-\(UUID().uuidString)")
 }
 
 @MainActor

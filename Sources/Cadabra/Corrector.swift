@@ -2,7 +2,7 @@ import CLlama
 import CryptoKit
 import Foundation
 
-/// A Qwen model that MyWisper can download for correction. Pinned to one Hugging Face revision and
+/// A Qwen model that Cadabra can download for correction. Pinned to one Hugging Face revision and
 /// checked against its SHA-256 after downloading.
 enum CorrectionModel: String, CaseIterable, Identifiable {
     case qwen35bA3B, qwen4B
@@ -51,11 +51,11 @@ enum CorrectionModel: String, CaseIterable, Identifiable {
     }
 
     static let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        .appendingPathComponent("MyWisper/Models")
+        .appendingPathComponent("Cadabra/Models")
 
-    /// MYWISPER_LLM_MODEL (a .gguf path) overrides the downloaded file, for the command line.
+    /// CADABRA_LLM_MODEL (a .gguf path) overrides the downloaded file, for the command line.
     var localURL: URL {
-        if let path = ProcessInfo.processInfo.environment["MYWISPER_LLM_MODEL"] { return URL(fileURLWithPath: path) }
+        if let path = ProcessInfo.processInfo.environment["CADABRA_LLM_MODEL"] { return URL(fileURLWithPath: path) }
         return Self.directory.appendingPathComponent(fileName)
     }
 
@@ -101,7 +101,7 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    private let queue = DispatchQueue(label: "MyWisper.llm", qos: .userInitiated)
+    private let queue = DispatchQueue(label: "Cadabra.llm", qos: .userInitiated)
     private var model: OpaquePointer?
     private var context: OpaquePointer?
     private var sampler: UnsafeMutablePointer<llama_sampler>?

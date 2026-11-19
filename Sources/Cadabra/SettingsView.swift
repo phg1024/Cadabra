@@ -117,7 +117,7 @@ private struct GeneralSettings: View {
             Section {
                 Toggle(isOn: $prefs.learnFromEdits) {
                     Text(t("从我的修改中学习", "Learn from my fixes"))
-                    Text(t("文字输入后两分钟内，如果你在原处改了某个词，MyWisper 会记住。", "If you fix a word in the typed text within two minutes, MyWisper remembers it."))
+                    Text(t("文字输入后两分钟内，如果你在原处改了某个词，Cadabra 会记住。", "If you fix a word in the typed text within two minutes, Cadabra remembers it."))
                 }
                 LabeledContent(t("已学到 \(learned.fixes.count) 处", "\(learned.fixes.count) learned")) {
                     Button(t("查看…", "Show…")) { showLearned = true }
@@ -249,7 +249,7 @@ private struct PermissionSettings: View {
                 PermissionRow(title: t("辅助功能", "Accessibility"), detail: t("监听快捷键（全局），并模拟 ⌘V 把文字粘贴到光标处。", "Listens for the shortcut in every app and sends ⌘V to paste text at the cursor."),
                               granted: model.accessibilityGranted) { model.requestAccessibility() }
             } footer: {
-                Text(t("重新编译过 MyWisper 后，系统会把它当成新程序：到 系统设置 › 隐私与安全性 › 辅助功能 里用「−」删掉旧的 MyWisper，再点这里的「授权」重新添加。", "If the shortcut stops working after an update, remove MyWisper with “−” in System Settings › Privacy & Security › Accessibility, then click Grant here to add it again."))
+                Text(t("重新编译过 Cadabra 后，系统会把它当成新程序：到 系统设置 › 隐私与安全性 › 辅助功能 里用「−」删掉旧的 Cadabra，再点这里的「授权」重新添加。", "If the shortcut stops working after an update, remove Cadabra with “−” in System Settings › Privacy & Security › Accessibility, then click Grant here to add it again."))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             }
@@ -261,7 +261,7 @@ private struct PermissionSettings: View {
 
 /// Opened in the browser only when clicked; the app itself never connects anywhere.
 enum Links {
-    static let repository = URL(string: "https://github.com/phg1024/MyWisper")!
+    static let repository = URL(string: "https://github.com/phg1024/Cadabra")!
     static let sponsors = URL(string: "https://github.com/sponsors/phg1024")!
     static let coffee = URL(string: "https://buymeacoffee.com/phg1024")!
 }
@@ -274,7 +274,7 @@ struct AboutSettings: View {
         VStack(spacing: 14) {
             AppGlyph(size: 72)
             VStack(spacing: 4) {
-                Text("MyWisper").font(.system(size: 20, weight: .semibold))
+                Text("Cadabra").font(.system(size: 20, weight: .semibold))
                 Text(t("版本 \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev")", "Version \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev")"))
                     .font(.system(size: 12)).foregroundStyle(.secondary)
             }
@@ -307,7 +307,7 @@ struct AboutSettings: View {
             }
             .buttonStyle(.bordered)
             .controlSize(.small)
-            Text(t("MyWisper 免费开源。觉得好用的话，欢迎请我喝杯咖啡。", "MyWisper is free and open source. If it helps you, a coffee is always appreciated."))
+            Text(t("Cadabra 免费开源。觉得好用的话，欢迎请我喝杯咖啡。", "Cadabra is free and open source. If it helps you, a coffee is always appreciated."))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
             Text(t("SenseVoice-Small 模型来自 FunAudioLLM（阿里巴巴通义实验室），遵循 FunASR 模型开源协议；sherpa-onnx（Apache-2.0）、ONNX Runtime（MIT）、llama.cpp（MIT）。详见 App 包内的 THIRD_PARTY_NOTICES.md。", "SenseVoice-Small by FunAudioLLM (Tongyi Lab, Alibaba Group), under the FunASR Model Open Source License; sherpa-onnx (Apache-2.0), ONNX Runtime (MIT), llama.cpp (MIT). See THIRD_PARTY_NOTICES.md inside the app."))
@@ -362,7 +362,7 @@ struct HistoryWindow: View {
     }
 }
 
-/// Fixing a dictation by hand; MyWisper remembers the changed words.
+/// Fixing a dictation by hand; Cadabra remembers the changed words.
 private struct CorrectEntrySheet: View {
     let entry: HistoryEntry
     let onSave: (String) -> Void
@@ -372,7 +372,7 @@ private struct CorrectEntrySheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(t("改正识别结果", "Correct this dictation")).font(.headline)
-            Text(t("把识别错的词改对。MyWisper 会记住改动的词，下次遇到同样的错就自动改好。", "Fix the words that came out wrong. MyWisper remembers the changed words and fixes the same mistake next time."))
+            Text(t("把识别错的词改对。Cadabra 会记住改动的词，下次遇到同样的错就自动改好。", "Fix the words that came out wrong. Cadabra remembers the changed words and fixes the same mistake next time."))
                 .font(.system(size: 11)).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             TextEditor(text: $text)
@@ -396,7 +396,7 @@ private struct CorrectEntrySheet: View {
     }
 }
 
-/// What MyWisper has learned from the user's fixes.
+/// What Cadabra has learned from the user's fixes.
 struct LearnedFixesView: View {
     @ObservedObject var learned = LearnedFixes.shared
     @Environment(\.dismiss) private var dismiss
@@ -452,7 +452,7 @@ struct WelcomeView: View {
         VStack(spacing: 22) {
             VStack(spacing: 10) {
                 AppGlyph(size: 64)
-                Text(t("欢迎使用 MyWisper", "Welcome to MyWisper")).font(.system(size: 22, weight: .semibold))
+                Text(t("欢迎使用 Cadabra", "Welcome to Cadabra")).font(.system(size: 22, weight: .semibold))
                 Text(t("说话，文字就出现在光标处。全部在本机完成。", "Talk, and the text appears at your cursor. Everything stays on this Mac."))
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
@@ -461,7 +461,7 @@ struct WelcomeView: View {
                 PermissionRow(title: t("1. 允许使用麦克风", "1. Allow the microphone"), detail: t("点「授权」，在弹窗里选「允许」。", "Click Grant, then Allow in the dialog."),
                               granted: model.micStatus == .authorized) { model.requestMicrophone() }
                 PermissionRow(title: t("2. 允许辅助功能", "2. Allow Accessibility"),
-                              detail: t("点「授权」后会打开系统设置，在列表里打开 MyWisper 的开关。用来监听快捷键和粘贴文字。", "Click Grant to open System Settings, then turn on MyWisper in the list. It’s used for the shortcut and for pasting."),
+                              detail: t("点「授权」后会打开系统设置，在列表里打开 Cadabra 的开关。用来监听快捷键和粘贴文字。", "Click Grant to open System Settings, then turn on Cadabra in the list. It’s used for the shortcut and for pasting."),
                               granted: model.accessibilityGranted) { model.requestAccessibility() }
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "keyboard").font(.system(size: 16)).foregroundStyle(.secondary).frame(width: 18)

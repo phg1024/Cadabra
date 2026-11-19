@@ -24,7 +24,7 @@ struct MenuView: View {
         HStack(spacing: 10) {
             AppGlyph(size: 30)
             VStack(alignment: .leading, spacing: 1) {
-                Text("MyWisper").font(.system(size: 14, weight: .semibold))
+                Text("Cadabra").font(.system(size: 14, weight: .semibold))
                 Text(model.statusLine)
                     .font(.system(size: 11))
                     .foregroundStyle(statusIsWarning ? Color.orange : Color.secondary)

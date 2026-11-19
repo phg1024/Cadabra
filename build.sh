@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds MyWisper.app (release) into build/. `./build.sh install` also copies it to ~/Applications.
+# Builds Cadabra.app (release) into build/. `./build.sh install` also copies it to ~/Applications.
 # Needs Xcode (or the command line tools), plus sherpa-onnx's C library in Vendor/ and the SenseVoice
 # model in models/: ./fetch-deps.sh downloads both.
 #
@@ -18,13 +18,13 @@ MODEL=models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
 
 [ "${SKIP_TESTS:-}" = 1 ] || swift test --quiet
 swift build -c release
-BIN="$(swift build -c release --show-bin-path)/MyWisper"
+BIN="$(swift build -c release --show-bin-path)/Cadabra"
 
-APP=build/MyWisper.app
-STAGE=build/.stage/MyWisper.app
+APP=build/Cadabra.app
+STAGE=build/.stage/Cadabra.app
 rm -rf build/.stage
 mkdir -p "$STAGE/Contents/MacOS" "$STAGE/Contents/Frameworks" "$STAGE/Contents/Resources/model"
-cp "$BIN" "$STAGE/Contents/MacOS/MyWisper"
+cp "$BIN" "$STAGE/Contents/MacOS/Cadabra"
 cp Vendor/sherpa-onnx/lib/*.dylib "$STAGE/Contents/Frameworks/"
 cp Resources/Info.plist "$STAGE/Contents/Info.plist"
 if [ -n "${VERSION:-}" ]; then
@@ -32,16 +32,16 @@ if [ -n "${VERSION:-}" ]; then
   /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $(git rev-list --count HEAD)" "$STAGE/Contents/Info.plist"
 fi
 # The vendor rpath is only for `swift run`; it would also put this Mac's home path into the app.
-install_name_tool -delete_rpath "$PWD/Vendor/sherpa-onnx/lib" "$STAGE/Contents/MacOS/MyWisper" 2>/dev/null || true
+install_name_tool -delete_rpath "$PWD/Vendor/sherpa-onnx/lib" "$STAGE/Contents/MacOS/Cadabra" 2>/dev/null || true
 # Debug symbols (stabs) name the source and object files under this Mac's home folder.
-strip -S "$STAGE/Contents/MacOS/MyWisper"
+strip -S "$STAGE/Contents/MacOS/Cadabra"
 cp -R Resources/en.lproj Resources/zh-Hans.lproj "$STAGE/Contents/Resources/"
 cp ThirdParty/THIRD_PARTY_NOTICES.md ThirdParty/onnxruntime-ThirdPartyNotices.txt "$STAGE/Contents/Resources/"
 cp -c "$MODEL/model.int8.onnx" "$MODEL/tokens.txt" "$STAGE/Contents/Resources/model/" 2>/dev/null \
   || cp "$MODEL/model.int8.onnx" "$MODEL/tokens.txt" "$STAGE/Contents/Resources/model/"   # -c: APFS clone, instant
 cp "$MODEL/LICENSE" "$STAGE/Contents/Resources/model/" 2>/dev/null || true
 
-"$STAGE/Contents/MacOS/MyWisper" --make-icon build/.stage/AppIcon.iconset
+"$STAGE/Contents/MacOS/Cadabra" --make-icon build/.stage/AppIcon.iconset
 iconutil -c icns build/.stage/AppIcon.iconset -o "$STAGE/Contents/Resources/AppIcon.icns"
 
 if [ -n "${DEVELOPER_ID:-}" ]; then
@@ -56,7 +56,7 @@ else
   # No hardened runtime here: it needs a team ID, which a self-signed certificate doesn't have.
   SIGN_DIR="$PWD/.signing"
   KC="$SIGN_DIR/signing.keychain-db"
-  IDENTITY="MyWisper Local Signing"
+  IDENTITY="MyWisper Local Signing"   # the certificate in .signing/, made before the rename
   if [ ! -f "$KC" ]; then
     mkdir -p "$SIGN_DIR" && chmod 700 "$SIGN_DIR"
     (
@@ -77,7 +77,7 @@ else
   SIGN=(codesign --force --keychain "$KC" --sign "$IDENTITY")
 fi
 "${SIGN[@]}" "$STAGE/Contents/Frameworks/"*.dylib
-"${SIGN[@]}" --entitlements Resources/MyWisper.entitlements --identifier com.peihongguo.MyWisper "$STAGE"
+"${SIGN[@]}" --entitlements Resources/Cadabra.entitlements --identifier com.peihongguo.Cadabra "$STAGE"
 
 rm -rf "$APP"
 mv "$STAGE" "$APP"
@@ -85,9 +85,9 @@ rm -rf build/.stage
 echo "built $APP ($(du -sh "$APP" | cut -f1))"
 
 if [ "${1:-}" = "install" ]; then
-  pkill -x MyWisper 2>/dev/null && sleep 1 || true
+  pkill -x Cadabra 2>/dev/null && sleep 1 || true
   mkdir -p "$HOME/Applications"
-  rm -rf "$HOME/Applications/MyWisper.app"
+  rm -rf "$HOME/Applications/Cadabra.app"
   cp -R "$APP" "$HOME/Applications/"
-  echo "installed ~/Applications/MyWisper.app"
+  echo "installed ~/Applications/Cadabra.app"
 fi

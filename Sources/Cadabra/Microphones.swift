@@ -1,7 +1,7 @@
 import CoreAudio
 import os
 
-private let log = Logger(subsystem: "com.peihongguo.MyWisper", category: "audio")
+private let log = Logger(subsystem: "com.peihongguo.Cadabra", category: "audio")
 
 /// An audio input device.
 struct Microphone: Identifiable, Hashable {

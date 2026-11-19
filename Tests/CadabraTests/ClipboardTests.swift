@@ -1,10 +1,10 @@
 import AppKit
 import Testing
-@testable import MyWisper
+@testable import Cadabra
 
 @MainActor
 struct ClipboardTests {
-    let pasteboard = NSPasteboard(name: NSPasteboard.Name("MyWisperTests-\(UUID().uuidString)"))
+    let pasteboard = NSPasteboard(name: NSPasteboard.Name("CadabraTests-\(UUID().uuidString)"))
 
     init() {
         pasteboard.clearContents()

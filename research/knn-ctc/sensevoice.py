@@ -90,7 +90,7 @@ def load_wav(path) -> np.ndarray:
 
 def recordings():
     """Saved recordings with the text the user ended up sending."""
-    folder = Path.home() / "Library/Application Support/MyWisper/Recordings"
+    folder = Path.home() / "Library/Application Support/Cadabra/Recordings"
     for meta in sorted(folder.glob("*.json")):
         info = json.loads(meta.read_text())
         wav = meta.with_suffix(".wav")

@@ -23,27 +23,27 @@ DEVELOPER_ID=${DEVELOPER_ID:-$(security find-identity -v -p codesigning \
 if [ -n "$DEVELOPER_ID" ]; then echo "signing as: $DEVELOPER_ID (will notarize)"; else echo "no Developer ID: self-signed, not notarized"; fi
 
 # Including the correction model's tests, which load it (needs it downloaded).
-MYWISPER_LLM_TESTS=1 DEVELOPER_ID="$DEVELOPER_ID" VERSION="$VERSION" ./build.sh
-APP=build/MyWisper.app
+CADABRA_LLM_TESTS=1 DEVELOPER_ID="$DEVELOPER_ID" VERSION="$VERSION" ./build.sh
+APP=build/Cadabra.app
 codesign --verify --deep --strict "$APP"
 ! grep -rqaF "$HOME" "$APP/Contents/MacOS" "$APP/Contents/Frameworks" \
   || { echo "the app contains this Mac's home path ($HOME); rerun ./fetch-deps.sh"; exit 1; }
 
 if [ -n "$DEVELOPER_ID" ]; then
   # Notarize the app itself and staple the ticket, so it opens even offline once copied out of the DMG.
-  ditto -c -k --keepParent "$APP" build/MyWisper-notarize.zip
-  xcrun notarytool submit build/MyWisper-notarize.zip --keychain-profile "$NOTARY_PROFILE" --wait
+  ditto -c -k --keepParent "$APP" build/Cadabra-notarize.zip
+  xcrun notarytool submit build/Cadabra-notarize.zip --keychain-profile "$NOTARY_PROFILE" --wait
   xcrun stapler staple "$APP"
-  rm -f build/MyWisper-notarize.zip
+  rm -f build/Cadabra-notarize.zip
 fi
 
 # DMG with the app and an Applications shortcut.
-DMG=build/MyWisper-$VERSION.dmg
+DMG=build/Cadabra-$VERSION.dmg
 rm -rf build/dmg "$DMG"
 mkdir -p build/dmg
-ditto "$APP" build/dmg/MyWisper.app
+ditto "$APP" build/dmg/Cadabra.app
 ln -s /Applications build/dmg/Applications
-hdiutil create -volname "MyWisper $VERSION" -srcfolder build/dmg -fs HFS+ -format UDZO -o "$DMG" >/dev/null
+hdiutil create -volname "Cadabra $VERSION" -srcfolder build/dmg -fs HFS+ -format UDZO -o "$DMG" >/dev/null
 rm -rf build/dmg
 
 if [ -n "$DEVELOPER_ID" ]; then
@@ -62,4 +62,4 @@ echo
 echo "ready: $DMG ($(du -h "$DMG" | cut -f1), sha256 $SHA)"
 echo "publish with:"
 echo "  git tag v$VERSION && git push origin v$VERSION"
-echo "  gh release create v$VERSION '$DMG' --title 'MyWisper $VERSION' --notes-file <notes.md>"
+echo "  gh release create v$VERSION '$DMG' --title 'Cadabra $VERSION' --notes-file <notes.md>"

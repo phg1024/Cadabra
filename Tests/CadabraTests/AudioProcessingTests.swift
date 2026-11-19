@@ -1,6 +1,6 @@
 import AVFoundation
 import Testing
-@testable import MyWisper
+@testable import Cadabra
 
 struct AudioProcessingTests {
     func sine(_ seconds: Double, rate: Double, amplitude: Float = 0.5, hz: Double = 440) -> [Float] {
