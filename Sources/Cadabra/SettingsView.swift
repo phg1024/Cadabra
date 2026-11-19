@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.theme) private var theme
+
     var body: some View {
         TabView {
             GeneralSettings().tabItem { Label(t("通用", "General"), systemImage: "gearshape") }
@@ -8,6 +10,41 @@ struct SettingsView: View {
             AboutSettings().tabItem { Label(t("关于", "About"), systemImage: "info.circle") }
         }
         .frame(width: 520)
+        .themedBackground(theme)
+    }
+}
+
+/// The record button and the recording bar in a theme, under the theme picker.
+private struct ThemePreview: View {
+    var theme: Theme
+    private let levels: [Float] = [0.2, 0.45, 0.8, 0.5, 0.95, 0.6, 0.3, 0.7, 0.9, 0.4, 0.25, 0.65, 0.85, 0.5, 0.3, 0.55]
+
+    var body: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: 8) {
+                AppGlyph(size: 22)
+                Image(systemName: "mic.fill").font(.system(size: 12, weight: .semibold))
+                Text(t("开始听写", "Start dictation")).font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(theme.onAccent)
+            .padding(.leading, 4).padding(.trailing, 12)
+            .frame(height: 30)
+            .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(theme.gradient))
+            HStack(spacing: 8) {
+                PulsingDot(color: theme.dot).frame(width: 8, height: 8).scaleEffect(0.8)
+                Waveform(levels: levels, colors: theme.wave).frame(width: 70, height: 16)
+                Text("0:04").font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(theme.barText)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+            .background(Capsule().fill(theme.bar))
+            .overlay(Capsule().strokeBorder(theme.barText.opacity(0.14), lineWidth: 1))
+            Spacer()
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(theme.background ?? Color(nsColor: .windowBackgroundColor)))
+        .environment(\.theme, theme)
+        .fontDesign(theme.serif ? .serif : nil)
     }
 }
 
@@ -27,6 +64,12 @@ private struct GeneralSettings: View {
                 Picker("界面语言 / Language", selection: $prefs.uiLanguage) {
                     ForEach(UILanguage.allCases) { Text($0.title).tag($0) }
                 }
+                Picker(t("主题", "Theme"), selection: $prefs.theme) {
+                    ForEach(Theme.all) { theme in
+                        Text(theme.title).tag(theme.id)
+                    }
+                }
+                ThemePreview(theme: Theme.named(prefs.theme))
             }
 
             Section {

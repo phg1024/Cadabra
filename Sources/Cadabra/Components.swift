@@ -8,14 +8,15 @@ enum Brand {
 
 struct AppGlyph: View {
     var size: CGFloat
+    @Environment(\.theme) private var theme
 
     var body: some View {
         RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-            .fill(Brand.gradient)
+            .fill(theme.gradient)
             .overlay(
                 Image(systemName: "waveform")
                     .font(.system(size: size * 0.5, weight: .semibold))
-                    .foregroundStyle(.white))
+                    .foregroundStyle(theme.onAccent))
             .frame(width: size, height: size)
     }
 }
@@ -43,6 +44,7 @@ struct AppIconArt: View {
 struct Keycap: View {
     var text: String
     var onColor = false
+    @Environment(\.theme) private var theme
 
     var body: some View {
         Text(text)
@@ -51,10 +53,10 @@ struct Keycap: View {
             .padding(.vertical, 2)
             .background(
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .fill(onColor ? Color.white.opacity(0.22) : Color.primary.opacity(0.08)))
+                    .fill(onColor ? theme.onAccent.opacity(0.22) : Color.primary.opacity(0.08)))
             .overlay(
                 RoundedRectangle(cornerRadius: 5, style: .continuous)
-                    .strokeBorder(onColor ? Color.white.opacity(0.35) : Color.primary.opacity(0.15), lineWidth: 0.5))
+                    .strokeBorder(onColor ? theme.onAccent.opacity(0.35) : Color.primary.opacity(0.15), lineWidth: 0.5))
     }
 }
 

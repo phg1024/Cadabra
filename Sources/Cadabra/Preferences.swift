@@ -171,6 +171,8 @@ final class Preferences: ObservableObject {
     /// Keep each recording with its final text, for fine-tuning the speech model.
     @Published var collectTraining: Bool { didSet { defaults.set(collectTraining, forKey: "collectTraining") } }
     @Published var onboarded: Bool { didSet { defaults.set(onboarded, forKey: "onboarded") } }
+    /// A `Theme` id.
+    @Published var theme: String { didSet { defaults.set(theme, forKey: "theme") } }
     @Published var uiLanguage: UILanguage {
         didSet {
             defaults.set(uiLanguage.rawValue, forKey: "uiLanguage")
@@ -219,6 +221,7 @@ final class Preferences: ObservableObject {
         learnFromEdits = defaults.object(forKey: "learnFromEdits") as? Bool ?? true
         collectTraining = defaults.bool(forKey: "collectTraining")
         onboarded = defaults.bool(forKey: "onboarded")
+        theme = defaults.string(forKey: "theme") ?? Theme.cadabra.id
         uiLanguage = UILanguage(rawValue: defaults.string(forKey: "uiLanguage") ?? "") ?? .system
     }
 }

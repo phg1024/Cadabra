@@ -6,6 +6,7 @@ struct MenuView: View {
     @EnvironmentObject var history: HistoryStore
     @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.theme) private var theme
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -18,6 +19,7 @@ struct MenuView: View {
         }
         .padding(14)
         .frame(width: 340)
+        .background(theme.background ?? .clear)
     }
 
     private var header: some View {
@@ -128,6 +130,7 @@ struct MenuView: View {
 struct RecordButton: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var prefs: Preferences
+    @Environment(\.theme) private var theme
     @State private var hovering = false
 
     var body: some View {
@@ -140,25 +143,25 @@ struct RecordButton: View {
                     .font(.system(size: 14, weight: .semibold))
                 Spacer()
                 if model.isRecording {
-                    Waveform(levels: Array(model.levels.suffix(14)), color: .white)
+                    Waveform(levels: Array(model.levels.suffix(14)), colors: [theme.onAccent])
                         .frame(width: 54, height: 18)
                     ElapsedText(start: model.recordingStart)
                         .font(.system(size: 12, weight: .medium).monospacedDigit())
                 } else if model.modelState == .loading {
-                    ProgressView().controlSize(.small).tint(.white)
+                    ProgressView().controlSize(.small).tint(theme.onAccent)
                 } else {
                     Keycap(text: prefs.hotkey.keycap, onColor: true)
                 }
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(model.isRecording ? .white : theme.onAccent)
             .padding(.horizontal, 14)
             .frame(height: 46)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(model.isRecording ? AnyShapeStyle(Color.red.gradient) : AnyShapeStyle(Brand.gradient)))
+                    .fill(model.isRecording ? AnyShapeStyle(theme.dot.gradient) : AnyShapeStyle(theme.gradient)))
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white.opacity(hovering ? 0.08 : 0)))
+                    .fill(theme.onAccent.opacity(hovering ? 0.08 : 0)))
             .contentShape(RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)

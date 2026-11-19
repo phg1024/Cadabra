@@ -27,6 +27,13 @@ Cadabra bundles the following third-party components.
 
 ---
 
+## Color themes
+
+The Dracula, Nord, One Dark, Monokai, Solarized, GitHub Light and Gruvbox themes use the colors of
+those editor themes. No code from them is included. Dracula (Zeno Rocha), Nord (Arctic Ice Studio and
+Sven Greb), One Dark (GitHub, from Atom), Solarized (Ethan Schoonover), GitHub's Primer colors and
+Gruvbox (Pavel Pertsev) are published under the MIT License; Monokai is by Wimer Hazenberg.
+
 ## FunASR Model Open Source License Agreement 1.1
 
 FunASR Model Open Source License Agreement

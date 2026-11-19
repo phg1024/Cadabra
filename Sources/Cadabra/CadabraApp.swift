@@ -36,12 +36,15 @@ struct CadabraApp: App {
     @StateObject private var prefs = Preferences.shared
     @StateObject private var history = HistoryStore.shared
 
+    private var theme: Theme { Theme.named(prefs.theme) }
+
     var body: some Scene {
         MenuBarExtra {
             MenuView()
                 .environmentObject(model)
                 .environmentObject(prefs)
                 .environmentObject(history)
+                .themed(theme)
                 .id(prefs.uiLanguage)   // rebuild every view, so all text switches language at once
         } label: {
             MenuBarLabel(model: model)
@@ -53,11 +56,12 @@ struct CadabraApp: App {
                 .environmentObject(model)
                 .environmentObject(prefs)
                 .environmentObject(history)
+                .themed(theme)
                 .id(prefs.uiLanguage)
         }
 
         Window(t("历史记录", "History"), id: "history") {
-            HistoryWindow().environmentObject(history).environmentObject(model).id(prefs.uiLanguage)
+            HistoryWindow().environmentObject(history).environmentObject(model).themedBackground(theme).themed(theme).id(prefs.uiLanguage)
         }
         .defaultSize(width: 520, height: 600)
         .defaultLaunchBehavior(.suppressed)
@@ -66,6 +70,8 @@ struct CadabraApp: App {
             WelcomeView()
                 .environmentObject(model)
                 .environmentObject(prefs)
+                .themedBackground(theme)
+                .themed(theme)
                 .id(prefs.uiLanguage)
         }
         .windowResizability(.contentSize)

@@ -95,6 +95,9 @@ struct HUDView: View {
     @EnvironmentObject var hud: HUDState
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var prefs: Preferences
+    /// For --snapshot: a theme other than the chosen one.
+    var themeOverride: Theme?
+    private var theme: Theme { themeOverride ?? Theme.named(prefs.theme) }
 
     var body: some View {
         VStack {
@@ -103,17 +106,19 @@ struct HUDView: View {
                 content
                     .padding(.horizontal, 18)
                     .frame(height: 46)
-                    .background(Capsule().fill(Color.black.opacity(0.84)))
-                    .overlay(Capsule().strokeBorder(Color.white.opacity(0.14), lineWidth: 1))
-                    .shadow(color: .black.opacity(0.35), radius: 14, y: 6)
-                    .foregroundStyle(.white)
+                    .background(Capsule().fill(theme.bar))
+                    .overlay(Capsule().strokeBorder(theme.barText.opacity(0.14), lineWidth: 1))
+                    .shadow(color: .black.opacity(theme.barIsDark ? 0.35 : 0.2), radius: 14, y: 6)
+                    .foregroundStyle(theme.barText)
                     .transition(.scale(scale: 0.92).combined(with: .opacity))
             }
         }
         .padding(.bottom, 14)
         .frame(width: HUDController.size.width, height: HUDController.size.height)
         .animation(.spring(duration: 0.28, bounce: 0.2), value: hud.kind)
-        .environment(\.colorScheme, .dark)
+        .environment(\.colorScheme, theme.barIsDark ? .dark : .light)
+        .environment(\.theme, theme)
+        .fontDesign(theme.serif ? .serif : nil)
     }
 
     @ViewBuilder
@@ -123,20 +128,20 @@ struct HUDView: View {
             EmptyView()
         case .recording:
             HStack(spacing: 12) {
-                PulsingDot()
-                Waveform(levels: model.levels, color: .white)
+                PulsingDot(color: theme.dot)
+                Waveform(levels: model.levels, colors: theme.wave)
                     .frame(width: 120, height: 24)
                 ElapsedText(start: model.recordingStart)
                     .font(.system(size: 13, weight: .medium).monospacedDigit())
                     .frame(minWidth: 34, alignment: .leading)
                 Text(hint)
                     .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(theme.barText.opacity(0.6))
                     .fixedSize()
             }
         case .transcribing:
             HStack(spacing: 10) {
-                ProgressView().controlSize(.small).tint(.white)
+                ProgressView().controlSize(.small).tint(theme.barText)
                 Text(t("识别中…", "Transcribing…")).font(.system(size: 13, weight: .medium))
             }
         case .done(let text, let pasted):
@@ -151,7 +156,7 @@ struct HUDView: View {
                     .frame(maxWidth: 420, alignment: .leading)
                     .fixedSize(horizontal: true, vertical: false)
                 if !pasted {
-                    Text(t("已复制，⌘V 粘贴", "Copied. Press ⌘V to paste")).font(.system(size: 12)).foregroundStyle(.white.opacity(0.6)).fixedSize()
+                    Text(t("已复制，⌘V 粘贴", "Copied. Press ⌘V to paste")).font(.system(size: 12)).foregroundStyle(theme.barText.opacity(0.6)).fixedSize()
                 }
             }
         case .message(let text, let symbol):
@@ -169,9 +174,11 @@ struct HUDView: View {
 }
 
 struct PulsingDot: View {
+    var color: Color = .red
+
     var body: some View {
         Circle()
-            .fill(Color.red)
+            .fill(color)
             .frame(width: 10, height: 10)
             .phaseAnimator([1.0, 0.35]) { dot, phase in
                 dot.opacity(phase)
@@ -181,14 +188,15 @@ struct PulsingDot: View {
 
 struct Waveform: View {
     var levels: [Float]
-    var color: Color
+    /// Taken in turn, bar by bar.
+    var colors: [Color]
 
     var body: some View {
         GeometryReader { geo in
             HStack(alignment: .center, spacing: 2) {
-                ForEach(Array(levels.enumerated()), id: \.offset) { _, level in
+                ForEach(Array(levels.enumerated()), id: \.offset) { i, level in
                     Capsule()
-                        .fill(color.opacity(0.35 + 0.65 * Double(level)))
+                        .fill(colors[i % colors.count].opacity(0.35 + 0.65 * Double(level)))
                         .frame(height: max(3, geo.size.height * CGFloat(level)))
                 }
             }
