@@ -201,6 +201,7 @@ private struct GeneralSettings: View {
 
             Section(t("其他", "Other")) {
                 Toggle(t("提示音", "Sounds"), isOn: $prefs.sounds)
+                Toggle(t("说话时显示文字", "Show the words while you talk"), isOn: $prefs.livePreview)
                 Toggle(t("登录时自动启动", "Open at login"), isOn: Binding(get: { model.launchAtLogin }, set: { model.launchAtLogin = $0 }))
                 Toggle(t("保存历史记录", "Keep history"), isOn: $prefs.saveHistory)
                 Toggle(isOn: $prefs.saveRecordings) {

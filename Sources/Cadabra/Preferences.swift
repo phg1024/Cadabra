@@ -186,6 +186,8 @@ final class Preferences: ObservableObject {
     @Published var restoreClipboard: Bool { didSet { defaults.set(restoreClipboard, forKey: "restoreClipboard") } }
     @Published var dropTrailingPeriod: Bool { didSet { defaults.set(dropTrailingPeriod, forKey: "dropTrailingPeriod") } }
     @Published var sounds: Bool { didSet { defaults.set(sounds, forKey: "sounds") } }
+    /// Show the words recognized so far in the recording bar while the user talks.
+    @Published var livePreview: Bool { didSet { defaults.set(livePreview, forKey: "livePreview") } }
     @Published var saveHistory: Bool { didSet { defaults.set(saveHistory, forKey: "saveHistory") } }
     @Published var saveRecordings: Bool { didSet { defaults.set(saveRecordings, forKey: "saveRecordings") } }
     /// Learn from the user fixing a dictation right after it was typed.
@@ -246,6 +248,7 @@ final class Preferences: ObservableObject {
         restoreClipboard = defaults.object(forKey: "restoreClipboard") as? Bool ?? true
         dropTrailingPeriod = defaults.object(forKey: "dropTrailingPeriod") as? Bool ?? false
         sounds = defaults.object(forKey: "sounds") as? Bool ?? true
+        livePreview = defaults.object(forKey: "livePreview") as? Bool ?? true
         saveHistory = defaults.object(forKey: "saveHistory") as? Bool ?? true
         saveRecordings = defaults.bool(forKey: "saveRecordings")
         learnFromEdits = defaults.object(forKey: "learnFromEdits") as? Bool ?? true

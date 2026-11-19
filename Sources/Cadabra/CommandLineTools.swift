@@ -164,6 +164,11 @@ enum CommandLineTools {
             ("copied", .done("晚饭吃什么？", pasted: false)),
             ("message", .message("没有听到声音", symbol: "waveform.slash")),
         ]
+        let live = AppModel.preview(recording: true, live: t("帮我把明天下午三点的会改到四点，顺便提醒一下 Peter 带上", "Move tomorrow's three o'clock meeting to four, and remind Peter to bring the"), history: history)
+        let liveState = HUDState()
+        liveState.kind = .recording
+        render(HUDView().environmentObject(liveState).environmentObject(live).environmentObject(live.prefs),
+               to: dir.appendingPathComponent("hud-live.png"), scheme: .dark, transparent: true)
         for (name, kind) in hudKinds {
             let state = HUDState()
             state.kind = kind

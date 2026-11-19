@@ -136,10 +136,21 @@ struct HUDView: View {
                 ElapsedText(start: model.recordingStart)
                     .font(.system(size: 13, weight: .medium).monospacedDigit())
                     .frame(minWidth: 34, alignment: .leading)
-                Text(hint)
-                    .font(.system(size: 12))
-                    .foregroundStyle(theme.barText.opacity(0.6))
-                    .fixedSize()
+                if model.liveText.isEmpty {
+                    Text(hint)
+                        .font(.system(size: 12))
+                        .foregroundStyle(theme.barText.opacity(0.6))
+                        .fixedSize()
+                } else {
+                    // The end of what was said so far; the start scrolls off to the left.
+                    Text(model.liveText)
+                        .font(.system(size: 13))
+                        .lineLimit(1)
+                        .truncationMode(.head)
+                        .frame(maxWidth: 330, alignment: .leading)
+                        .fixedSize(horizontal: model.liveText.count < 20, vertical: false)
+                        .animation(.easeOut(duration: 0.15), value: model.liveText)
+                }
             }
         case .thinking(let text):
             HStack(spacing: 10) {

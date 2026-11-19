@@ -72,6 +72,12 @@ final class AudioRecorder: @unchecked Sendable {
         }
     }
 
+    /// The last `seconds` of what has been recorded so far (16 kHz), while recording goes on.
+    func recent(seconds: Double) -> [Float] {
+        let count = Int(seconds * Double(ASREngine.sampleRate))
+        return lock.withLock { Array(samples.suffix(count)) }
+    }
+
     /// Stops capturing and returns everything recorded since start().
     func stop() -> [Float] {
         if let unit {

@@ -27,6 +27,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var latched = false
     /// This recording is an instruction for rewriting the selection (the rewrite key), not dictation.
     @Published private(set) var editing = false
+    /// What has been recognized so far, while recording (`preview()`).
+    @Published private(set) var liveText = ""
     @Published private(set) var pending = 0
     @Published private(set) var levels = [Float](repeating: 0, count: AppModel.levelCount)
     @Published private(set) var micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
@@ -44,6 +46,10 @@ final class AppModel: ObservableObject {
     /// Another key or a click this soon after the dictation key means it was a modifier (⌥E, ⌥-click)
     /// and the recording is dropped. Later ones are the user doing something else while talking.
     static let chordWindow: TimeInterval = 0.5
+    /// While recording, the words so far are recognized this often, from at most the last `previewWindow`
+    /// seconds: the bar shows only the end of them, and a long recording shouldn't cost more each time.
+    static let previewEvery: TimeInterval = 0.8
+    static let previewWindow: TimeInterval = 15
 
     private let engine = ASREngine()
     private let recorder = AudioRecorder()
@@ -59,6 +65,8 @@ final class AppModel: ObservableObject {
     private var jobs: [UUID: Task<Void, Never>] = [:]
     /// While rewriting: the selection, read when the recording started.
     private var selection: Task<String, Never>?
+    private var previewTimer: Timer?
+    private var previewBusy = false
 
     init(prefs: Preferences, history: HistoryStore) {
         self.prefs = prefs
@@ -298,6 +306,11 @@ final class AppModel: ObservableObject {
         self.latched = latched
         isRecording = true
         recordingStart = Date()
+        if prefs.livePreview {
+            previewTimer = Timer.scheduledTimer(withTimeInterval: Self.previewEvery, repeats: true) { [weak self] _ in
+                MainActor.assumeIsolated { self?.preview() }
+            }
+        }
         levels = Array(repeating: 0, count: Self.levelCount)
         // Sound and HUD wait a moment, so a ⌥E typed with the dictation key shows nothing at all.
         let work = DispatchWorkItem { [weak self] in
@@ -389,7 +402,27 @@ final class AppModel: ObservableObject {
         return true
     }
 
+    /// Recognizes what has been said so far, for the recording bar. Skipped while the last one is still
+    /// running, so it never queues up in front of the final recognition.
+    private func preview() {
+        guard isRecording, !previewBusy else { return }
+        let audio = recorder.recent(seconds: Self.previewWindow)
+        guard audio.count >= ASREngine.sampleRate / 2 else { return }
+        let session = recordingStart
+        let hotwords = prefs.hotwords ? prefs.vocabularyTerms + LearnedFixes.shared.hotwords : []
+        previewBusy = true
+        Task {
+            defer { previewBusy = false }
+            guard let transcript = try? await engine.transcribe(audio, hotwords: hotwords),
+                  isRecording, recordingStart == session else { return }
+            liveText = LearnedFixes.shared.apply(transcript.text)
+        }
+    }
+
     private func finishRecording() -> [Float] {
+        previewTimer?.invalidate()
+        previewTimer = nil
+        liveText = ""
         feedback?.cancel()
         feedback = nil
         let samples = recorder.stop()
@@ -515,12 +548,13 @@ final class AppModel: ObservableObject {
     // MARK: Previews
 
     /// A model in a fixed state, for --snapshot.
-    static func preview(recording: Bool = false, latched: Bool = false, permissions: Bool = true,
+    static func preview(recording: Bool = false, latched: Bool = false, permissions: Bool = true, live: String = "",
                         history: HistoryStore) -> AppModel {
         let model = AppModel(prefs: Preferences(), history: history)
         model.modelState = .ready
         model.isRecording = recording
         model.latched = latched
+        model.liveText = live
         model.recordingStart = Date().addingTimeInterval(-4.2)
         model.levels = (0..<levelCount).map { i in Float(0.25 + 0.6 * abs(sin(Double(i) * 0.7))) }
         model.micStatus = permissions ? .authorized : .notDetermined
