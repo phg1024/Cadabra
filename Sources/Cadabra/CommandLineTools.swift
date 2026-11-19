@@ -192,34 +192,47 @@ enum CommandLineTools {
                .background(Color(nsColor: .windowBackgroundColor)),
                to: dir.appendingPathComponent("welcome.png"), scheme: .light)
         render(themeGallery(history: history), to: dir.appendingPathComponent("themes.png"), scheme: .light)
+        // One theme at a time, for the site's theme picker.
+        for theme in Theme.all {
+            render(themeCard(theme, history: history), to: dir.appendingPathComponent("theme-\(theme.id).png"), scheme: .light, transparent: true)
+        }
         print("snapshots in \(dir.path)")
     }
 
     /// Every theme: its menu and its recording bar.
     @MainActor
     private static func themeGallery(history: HistoryStore) -> some View {
-        let model = AppModel.preview(history: history)
-        let recording = AppModel.preview(recording: true, history: history)
-        let state = HUDState()
-        state.kind = .recording
-        return LazyVGrid(columns: Array(repeating: GridItem(.fixed(360), spacing: 24, alignment: .top), count: 4), spacing: 28) {
+        LazyVGrid(columns: Array(repeating: GridItem(.fixed(360), spacing: 24, alignment: .top), count: 4), spacing: 28) {
             ForEach(Theme.all) { theme in
                 VStack(spacing: 6) {
                     Text(theme.title).font(.system(size: 15, weight: .semibold)).foregroundStyle(.black)
-                    MenuView()
-                        .environmentObject(model).environmentObject(model.prefs).environmentObject(history)
-                        .themed(theme)
-                        .background(theme.background == nil ? Color(nsColor: .windowBackgroundColor) : .clear)
-                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.black.opacity(0.12)))
-                    HUDView(themeOverride: theme).scaleEffect(0.62)
-                        .environmentObject(state).environmentObject(recording).environmentObject(recording.prefs)
-                        .frame(width: 360, height: 90).clipped()
+                    themeCard(theme, history: history)
                 }
             }
         }
         .padding(28)
         .background(Color(white: 0.86))
+        .environment(\.colorScheme, .light)
+    }
+
+    /// One theme's menu above its recording bar.
+    @MainActor
+    private static func themeCard(_ theme: Theme, history: HistoryStore) -> some View {
+        let model = AppModel.preview(history: history)
+        let recording = AppModel.preview(recording: true, history: history)
+        let state = HUDState()
+        state.kind = .recording
+        return VStack(spacing: 6) {
+            MenuView()
+                .environmentObject(model).environmentObject(model.prefs).environmentObject(history)
+                .themed(theme)
+                .background(theme.background == nil ? Color(nsColor: .windowBackgroundColor) : .clear)
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.black.opacity(0.12)))
+            HUDView(themeOverride: theme).scaleEffect(0.62)
+                .environmentObject(state).environmentObject(recording).environmentObject(recording.prefs)
+                .frame(width: 360, height: 90).clipped()
+        }
         .environment(\.colorScheme, .light)
     }
 
