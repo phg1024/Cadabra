@@ -4,8 +4,9 @@ import SwiftUI
 @main
 enum Entry {
     static func main() {
-        Rename.fromMyWisper()
+        // Not in the command-line modes: build.sh runs one while the old app may still be writing.
         if CommandLineTools.run(CommandLine.arguments) { return }
+        Rename.fromMyWisper()
         CadabraApp.main()
     }
 }
@@ -18,6 +19,14 @@ enum Rename {
         let files = FileManager.default
         let support = files.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let old = support.appendingPathComponent("MyWisper"), new = support.appendingPathComponent("Cadabra")
+        // The old app, if still installed and running (say as a login item), would fight over the shortcut
+        // and keep writing to its own folder: quit it.
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: "com.peihongguo.MyWisper")
+        running.forEach { $0.terminate() }
+        let deadline = Date().addingTimeInterval(5)
+        while running.contains(where: { !$0.isTerminated }), Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
         if files.fileExists(atPath: old.path), !files.fileExists(atPath: new.path) {
             do { try files.moveItem(at: old, to: new) } catch { NSLog("Cadabra: could not move \(old.path): \(error)") }
         }
