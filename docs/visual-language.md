@@ -98,8 +98,12 @@ the style, then the scene:
 
 **The model can't hit exact colors** (it ignores hex codes and paints its own idea of "sky blue"), so the
 stage is never left to it. Ask for the objects only, with `--background transparent`, and put them on
-the stage with `tools/stage.py cut.png out.png`: it draws the exact gradient, adds a soft violet shadow
-under the objects, and dithers the gradient so it doesn't show bands. Save JPEGs with
+the stage with `tools/stage.py cut.png out.png`: it takes the stage from the master plates, adds a soft
+violet shadow under the objects, and dithers the stage when it goes down to 8 bits so it doesn't show bands.
+
+The master plates are in `docs/images/stage/`: `stage-16x10.png` and `stage-2x1.png`, 16 bits per
+channel, so they have no steps; use them for anything else that sits on the stage (slides, mockups).
+`tools/stage.py --plates` makes them again if the colors change. Save JPEGs with
 `subsampling=0` (4:4:4) for the same reason.
 
 To change an existing picture, pass it as the reference and say what to keep ("keep the composition and
