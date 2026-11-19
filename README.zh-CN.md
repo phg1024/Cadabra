@@ -40,6 +40,8 @@ Cadabra（1.2 之前叫 MyWisper）是 macOS 菜单栏上的语音输入工具�
 
 ## 安装
 
+用 [Homebrew](https://brew.sh)：`brew install --cask phg1024/tap/cadabra`（Homebrew 可能先要你信任这个 tap：`brew trust phg1024/tap`），然后接着做第 2 步。或者：
+
 1. 从 [Releases](https://github.com/phg1024/Cadabra/releases/latest) 下载 `Cadabra-x.y.z.dmg`，打开后把 **Cadabra** 拖进「应用程序」。
 2. **第一次打开**：Cadabra 还没有用 Apple 开发者证书签名，所以第一次打开时 macOS 会拦下来（提示「Apple 无法验证…」）。点「完成」，然后打开 **系统设置 › 隐私与安全性**，往下拉到「安全性」，点 Cadabra 旁边的 **仍要打开**。只需要做一次。
    <br>或者在终端里运行：`xattr -dr com.apple.quarantine /Applications/Cadabra.app`

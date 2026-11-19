@@ -40,6 +40,8 @@ Cadabra (called MyWisper before 1.2) is a menu bar dictation app for macOS. Hold
 
 ## Install
 
+With [Homebrew](https://brew.sh): `brew install --cask phg1024/tap/cadabra` (Homebrew may ask you to trust the tap first: `brew trust phg1024/tap`). Then go on with step 2. Or:
+
 1. Download `Cadabra-x.y.z.dmg` from [Releases](https://github.com/phg1024/Cadabra/releases/latest), open it and drag **Cadabra** into **Applications**.
 2. **First launch.** Cadabra isn't signed with an Apple Developer ID yet, so macOS stops it the first time ("Apple could not verify…"). Click **Done**, then open **System Settings › Privacy & Security**, scroll down to *Security* and click **Open Anyway** next to Cadabra. You only do this once.
    <br>Or, in Terminal: `xattr -dr com.apple.quarantine /Applications/Cadabra.app`
