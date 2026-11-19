@@ -23,8 +23,12 @@ real Mac. Run through this list before a release, and after changing the file na
 - [ ] AirPods picked explicitly: it records from them (after the switch to call mode).
 - [ ] The picked microphone unplugged: it records from another one.
 - [ ] The waveform moves about ten bars a second and follows your voice.
-- [ ] Talking for ten seconds, the words appear in the bar as you go (about once a second), and
-      the text when you let go comes as fast as before.
+- [ ] "Typed into the field" (default): in TextEdit, Slack, Terminal and Vim's insert mode the words
+      appear in the field as you talk and settle into the final text when you let go; the clipboard
+      is yours again afterwards.
+- [ ] Clicking into another window mid-sentence: nothing more is typed or deleted there; the bar
+      shows the words instead. esc takes out what was typed.
+- [ ] "In the recording bar": the words show in the bar instead.
 
 ## Pasting (TextInjector, ClipboardSwap)
 

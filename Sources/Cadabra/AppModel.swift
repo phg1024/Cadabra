@@ -50,6 +50,8 @@ final class AppModel: ObservableObject {
     /// seconds: the bar shows only the end of them, and a long recording shouldn't cost more each time.
     static let previewEvery: TimeInterval = 0.8
     static let previewWindow: TimeInterval = 15
+    /// Typed into the field, the words are kept up to date for this long; the rest comes at the end.
+    static let fieldLimit: TimeInterval = 90
 
     private let engine = ASREngine()
     private let recorder = AudioRecorder()
@@ -67,6 +69,10 @@ final class AppModel: ObservableObject {
     private var selection: Task<String, Never>?
     private var previewTimer: Timer?
     private var previewBusy = false
+    /// Types the words so far into the field while recording (`LivePreview.field`).
+    private let typer = LiveTyper()
+    /// This recording's words go into the field as they come.
+    private var typingLive = false
 
     init(prefs: Preferences, history: HistoryStore) {
         self.prefs = prefs
@@ -306,7 +312,10 @@ final class AppModel: ObservableObject {
         self.latched = latched
         isRecording = true
         recordingStart = Date()
-        if prefs.livePreview {
+        // Into the field only when nothing earlier is still on its way there.
+        typingLive = prefs.livePreview == .field && prefs.autoPaste && !edit && pending == 0
+        if typingLive { typer.begin(in: TextInjector.Target.current()) }
+        if prefs.livePreview != .off {
             previewTimer = Timer.scheduledTimer(withTimeInterval: Self.previewEvery, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.preview() }
             }
@@ -332,6 +341,7 @@ final class AppModel: ObservableObject {
         let duration = Double(samples.count) / Double(ASREngine.sampleRate)
         let rms = samples.isEmpty ? 0 : sqrt(samples.reduce(0) { $0 + $1 * $1 } / Float(samples.count))
         guard duration >= 0.3, rms >= 0.001 else {
+            if typingLive { typer.clear() }
             if prefs.sounds { Sounds.error() }
             hud.flash(.message(duration < 0.3 ? t("录音太短", "Too short") : t("没有听到声音", "Didn’t hear anything"), symbol: "waveform.slash"))
             return
@@ -368,7 +378,7 @@ final class AppModel: ObservableObject {
                     log.notice("recognized in \(Int(transcript.latency * 1000)) ms")
                 }
                 guard !Task.isCancelled else { return }
-                let (text, id) = deliver(transcript, text: corrected ?? recognized, to: target)
+                let (text, id) = deliver(transcript, text: corrected ?? recognized, to: target, live: typingLive)
                 if prefs.collectTraining, let id {
                     TrainingData.shared.add(id: id, audio: samples, recognized: transcript.text, text: text,
                                             label: corrected.map { $0 != recognized } == true ? .modelChanged : .unchanged)
@@ -378,6 +388,7 @@ final class AppModel: ObservableObject {
                                           language: prefs.language)
                 }
             } catch {
+                if typingLive { typer.clear() }
                 if !isRecording { hud.flash(.message(error.localizedDescription, symbol: "exclamationmark.triangle")) }
             }
         }
@@ -392,12 +403,14 @@ final class AppModel: ObservableObject {
         selection = nil
         if isRecording {
             _ = finishRecording()
+            if typingLive { typer.clear() }
             if silently { hud.hide() } else { hud.flash(.message(t("已取消", "Cancelled"), symbol: "xmark.circle")) }
             return true
         }
         guard !silently, !jobs.isEmpty else { return false }
         jobs.values.forEach { $0.cancel() }
         jobs.removeAll()
+        if typingLive { typer.clear() }
         hud.flash(.message(t("已取消", "Cancelled"), symbol: "xmark.circle"))
         return true
     }
@@ -406,7 +419,10 @@ final class AppModel: ObservableObject {
     /// running, so it never queues up in front of the final recognition.
     private func preview() {
         guard isRecording, !previewBusy else { return }
-        let audio = recorder.recent(seconds: Self.previewWindow)
+        // In the field the whole text is needed (it's edited in place); past `fieldLimit` it waits for the end.
+        let inField = typingLive && typer.isTyping
+        if inField, Date().timeIntervalSince(recordingStart) > Self.fieldLimit { return }
+        let audio = recorder.recent(seconds: inField ? Self.fieldLimit : Self.previewWindow)
         guard audio.count >= ASREngine.sampleRate / 2 else { return }
         let session = recordingStart
         let hotwords = prefs.hotwords ? prefs.vocabularyTerms + LearnedFixes.shared.hotwords : []
@@ -415,7 +431,9 @@ final class AppModel: ObservableObject {
             defer { previewBusy = false }
             guard let transcript = try? await engine.transcribe(audio, hotwords: hotwords),
                   isRecording, recordingStart == session else { return }
-            liveText = LearnedFixes.shared.apply(transcript.text)
+            let text = LearnedFixes.shared.apply(transcript.text)
+            // Typed into the field; where that stopped working, shown in the bar instead.
+            if inField, typer.show(text) { liveText = "" } else { liveText = text }
         }
     }
 
@@ -478,15 +496,24 @@ final class AppModel: ObservableObject {
     /// Types or copies the text; returns it and its history entry.
     @discardableResult
     /// `dictated`: the user's own words (learned from, trailing period setting applied), not a rewrite.
-    private func deliver(_ transcript: Transcript, text recognized: String, to target: TextInjector.Target?, dictated: Bool = true) -> (String, UUID?) {
+    /// `live`: the words may already be in the field (`LiveTyper`); they are turned into the final text there.
+    private func deliver(_ transcript: Transcript, text recognized: String, to target: TextInjector.Target?, dictated: Bool = true,
+                         live: Bool = false) -> (String, UUID?) {
         var text = recognized
         if dictated, prefs.dropTrailingPeriod, let last = text.last, "。.".contains(last) { text.removeLast() }
         guard !text.isEmpty else {
+            if live { typer.clear() }
             if !isRecording { hud.flash(.message(t("没有识别出文字", "No speech recognized"), symbol: "questionmark.circle")) }
             return (text, nil)
         }
         let id = history.add(transcript, text: text)
-        let refusal = prefs.autoPaste ? TextInjector.paste(text, restoreClipboard: prefs.restoreClipboard, into: target) : .noAccess
+        var refusal: TextInjector.Refusal? = .noAccess
+        if live, !typer.typed.isEmpty, typer.finish(with: text, restoreClipboard: prefs.restoreClipboard) {
+            refusal = nil
+        } else if prefs.autoPaste {
+            typer.end()
+            refusal = TextInjector.paste(text, restoreClipboard: prefs.restoreClipboard, into: target)
+        }
         let pasted = refusal == nil
         if !pasted { TextInjector.copy(text) }
         if pasted {

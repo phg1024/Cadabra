@@ -75,3 +75,21 @@ struct ClipboardTests {
         #expect(pasteboard.types?.contains(NSPasteboard.PasteboardType("org.nspasteboard.TransientType")) == true)
     }
 }
+
+@MainActor
+struct LiveTyperTests {
+    @Test func onlyTheEndThatChangedIsRetyped() {
+        #expect(LiveTyper.shared("我们明天开会。", "我们明天开会吧，") == 6)
+        #expect(LiveTyper.shared("push上去", "push上去了") == 6)
+        #expect(LiveTyper.shared("", "你好") == 0)
+        #expect(LiveTyper.shared("👍好", "👍对") == 1)   // emoji counts as one character, like one backspace
+    }
+
+    @Test func nothingIsTypedWithoutAFieldToTypeInto() {
+        let typer = LiveTyper()
+        typer.begin(in: nil)   // our own window in front
+        #expect(!typer.isTyping)
+        #expect(!typer.show("你好"))
+        #expect(typer.typed.isEmpty)
+    }
+}

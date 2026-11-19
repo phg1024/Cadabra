@@ -86,6 +86,20 @@ enum TextInjector {
 
     private static func postCommandV() { postCommand(9) }
 
+    /// Backspace `count` times, with no modifier (⌥⌫ would take a whole word), marked as ours.
+    static func postBackspaces(_ count: Int) {
+        guard count > 0 else { return }
+        let source = CGEventSource(stateID: .combinedSessionState)
+        for _ in 0..<count {
+            for down in [true, false] {
+                guard let event = CGEvent(keyboardEventSource: source, virtualKey: 51, keyDown: down) else { continue }
+                event.flags = CGEventFlags(rawValue: 0)
+                event.setIntegerValueField(.eventSourceUserData, value: eventMarker)
+                event.post(tap: .cghidEventTap)
+            }
+        }
+    }
+
     /// ⌘ + a key, marked as ours. 9 is V, 8 is C.
     static func postCommand(_ key: CGKeyCode) {
         let source = CGEventSource(stateID: .combinedSessionState)
@@ -96,6 +110,74 @@ enum TextInjector {
             event.post(tap: .cghidEventTap)
         }
     }
+}
+
+/// Types the words recognized so far into the field while the user talks, and keeps them up to date as
+/// recognition changes its mind: deletes back to where the old and the new text part, and pastes the
+/// rest (pasting, unlike typing, gets past an input method). Gives up for good as soon as the field it
+/// started in loses focus or a password field has it; nothing is ever deleted anywhere else.
+@MainActor
+final class LiveTyper {
+    private(set) var typed = ""
+    private var target: TextInjector.Target?
+    private(set) var stopped = true
+
+    /// A recording started in `target` (nil: our own window is in front, so nothing is typed).
+    func begin(in target: TextInjector.Target?) {
+        typed = ""
+        self.target = target
+        stopped = target == nil || !AXIsProcessTrusted()
+    }
+
+    var isTyping: Bool { !stopped }
+
+    /// Shows `text` in the field; false when it can't (any more).
+    @discardableResult
+    func show(_ text: String) -> Bool {
+        guard !stopped else { return false }
+        guard let target, target.isStillFocused, !IsSecureEventInputEnabled(),
+              TextInjector.focusedElement().map(TextInjector.isSecure) != true else {
+            stopped = true
+            return false
+        }
+        replace(with: text)
+        return true
+    }
+
+    /// Turns what was typed into `text`, if the field still has focus. The clipboard comes back as after a paste.
+    @discardableResult
+    func finish(with text: String, restoreClipboard: Bool) -> Bool {
+        defer { end() }
+        guard !stopped, let target, target.isStillFocused else { return false }
+        replace(with: text, restoreAfter: restoreClipboard ? 3 : nil)
+        return true
+    }
+
+    /// Takes out what was typed (a cancelled or empty dictation), if the field still has focus.
+    func clear() {
+        if !stopped, let target, target.isStillFocused { replace(with: "") }
+        end()
+    }
+
+    func end() {
+        target = nil
+        typed = ""
+        stopped = true
+    }
+
+    private func replace(with text: String, restoreAfter: TimeInterval? = 5) {
+        let common = zip(typed, text).prefix { $0 == $1 }.count
+        TextInjector.postBackspaces(typed.count - common)
+        let rest = String(text.dropFirst(common))
+        if !rest.isEmpty {
+            ClipboardSwap.general.put(rest, restoreAfter: restoreAfter)
+            TextInjector.postCommand(9)
+        }
+        typed = text
+    }
+
+    /// The part two texts share at the start, in characters: what needn't be retyped.
+    static func shared(_ a: String, _ b: String) -> Int { zip(a, b).prefix { $0 == $1 }.count }
 }
 
 /// Puts dictated text on the clipboard for a paste and, if asked, the user's own clipboard back after it.

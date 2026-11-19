@@ -77,6 +77,20 @@ enum Hotkey: String, CaseIterable, Identifiable {
     }
 }
 
+enum LivePreview: String, CaseIterable, Identifiable {
+    case off, bar, field
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .off: t("不显示", "Off")
+        case .bar: t("在录音浮窗里", "In the recording bar")
+        case .field: t("直接打进输入框", "Typed into the field")
+        }
+    }
+}
+
 enum TriggerMode: String, CaseIterable, Identifiable {
     case auto, pushToTalk, toggle
 
@@ -186,8 +200,8 @@ final class Preferences: ObservableObject {
     @Published var restoreClipboard: Bool { didSet { defaults.set(restoreClipboard, forKey: "restoreClipboard") } }
     @Published var dropTrailingPeriod: Bool { didSet { defaults.set(dropTrailingPeriod, forKey: "dropTrailingPeriod") } }
     @Published var sounds: Bool { didSet { defaults.set(sounds, forKey: "sounds") } }
-    /// Show the words recognized so far in the recording bar while the user talks.
-    @Published var livePreview: Bool { didSet { defaults.set(livePreview, forKey: "livePreview") } }
+    /// Show the words recognized so far while the user talks: typed into the field, or in the recording bar.
+    @Published var livePreview: LivePreview { didSet { defaults.set(livePreview.rawValue, forKey: "livePreviewMode") } }
     @Published var saveHistory: Bool { didSet { defaults.set(saveHistory, forKey: "saveHistory") } }
     @Published var saveRecordings: Bool { didSet { defaults.set(saveRecordings, forKey: "saveRecordings") } }
     /// Learn from the user fixing a dictation right after it was typed.
@@ -248,7 +262,7 @@ final class Preferences: ObservableObject {
         restoreClipboard = defaults.object(forKey: "restoreClipboard") as? Bool ?? true
         dropTrailingPeriod = defaults.object(forKey: "dropTrailingPeriod") as? Bool ?? false
         sounds = defaults.object(forKey: "sounds") as? Bool ?? true
-        livePreview = defaults.object(forKey: "livePreview") as? Bool ?? true
+        livePreview = LivePreview(rawValue: defaults.string(forKey: "livePreviewMode") ?? "") ?? .field
         saveHistory = defaults.object(forKey: "saveHistory") as? Bool ?? true
         saveRecordings = defaults.bool(forKey: "saveRecordings")
         learnFromEdits = defaults.object(forKey: "learnFromEdits") as? Bool ?? true
