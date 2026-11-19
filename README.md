@@ -5,7 +5,8 @@
 <h1 align="center">Cadabra</h1>
 
 <p align="center">
-  <b>Hold a key, speak, and the text appears at your cursor. 100% on your Mac.</b><br>
+  <b>Say the word. AI does the rest.</b><br>
+  Prompt your coding agent, draft a doc, answer a message: speaking is three times faster than typing, and your voice never leaves your Mac.<br>
   English · <a href="README.zh-CN.md">简体中文</a>
 </p>
 

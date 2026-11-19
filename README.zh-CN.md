@@ -5,7 +5,8 @@
 <h1 align="center">Cadabra</h1>
 
 <p align="center">
-  <b>按住一个键说话，松开后文字出现在光标处。全部在你的 Mac 上完成。</b><br>
+  <b>开口说，剩下的交给 AI。</b><br>
+  给 Claude、Codex、ChatGPT 下指令，写代码、写文档、回消息：说出来比打字快三倍，而且声音只留在你的 Mac 上。<br>
   <a href="README.md">English</a> · 简体中文
 </p>
 
