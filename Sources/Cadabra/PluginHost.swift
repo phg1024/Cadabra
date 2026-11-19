@@ -24,7 +24,12 @@ final class PluginHost: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
     // MARK: From Cadabra
 
     /// The agent key went down: the plugin's window opens near the text.
-    func listen(near anchor: NSRect?) {
+    func listen(near anchor: NSRect?) { open(near: anchor, telling: "listen") }
+
+    /// Settings › Agent › Plugin settings: the window opens, nothing is recorded, and the page shows its settings.
+    func openSettings() { open(near: nil, telling: "settings") }
+
+    private func open(near anchor: NSRect?, telling event: String) {
         guard let plugin = AgentPlugin.selected else { return }
         if plugin != self.plugin { build(plugin) }
         self.anchor = anchor
@@ -35,7 +40,7 @@ final class PluginHost: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
         NSApp.activate()
         panel.makeKeyAndOrderFront(nil)
         if let view { panel.makeFirstResponder(view) }
-        send(["type": "listen"])
+        send(["type": event])
     }
 
     /// What has been recognized so far.

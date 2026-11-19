@@ -489,6 +489,9 @@ private struct CorrectEntrySheet: View {
 struct AgentSettings: View {
     @EnvironmentObject var prefs: Preferences
     @State private var plugins = AgentPlugin.installed()
+    private var selected: AgentPlugin? {
+        plugins.first { $0.id == prefs.agentPlugin } ?? (prefs.agentPlugin.isEmpty ? plugins.first : nil)
+    }
 
     var body: some View {
         Form {
@@ -503,6 +506,9 @@ struct AgentSettings: View {
                         NSWorkspace.shared.open(AgentPlugin.directory)
                     }
                     Button(t("重新查找", "Look again")) { plugins = AgentPlugin.installed() }
+                    if selected?.settings == true {
+                        Button(t("插件设置…", "Plugin settings…")) { PluginHost.shared.openSettings() }
+                    }
                 }
                 Picker(t("Agent 键", "Agent key"), selection: $prefs.agentHotkey) {
                     Text(t("关闭", "Off")).tag(Hotkey?.none)

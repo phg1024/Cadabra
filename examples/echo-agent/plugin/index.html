@@ -73,6 +73,8 @@ document.addEventListener("keydown", (e) => {
   }
 });
 $("gear").onclick = () => { $("tokenRow").hidden = !$("tokenRow").hidden; $("token").value = ""; if (!$("tokenRow").hidden) $("token").focus(); fit(); };
+// Settings › Agent › Plugin settings… (plugin.json has "settings": true): the token field, ready to type in.
+cadabra.on("settings", () => { $("tokenRow").hidden = false; $("token").value = ""; $("token").focus(); fit(); });
 $("token").addEventListener("keydown", (e) => {
   if (e.key !== "Enter" || e.isComposing) return;
   e.preventDefault();

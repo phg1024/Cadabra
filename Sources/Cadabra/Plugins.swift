@@ -17,6 +17,8 @@ struct AgentPlugin: Identifiable, Equatable {
     let hosts: [String]
     /// The window opens in the middle of the screen instead of next to the text (`"position": "center"`).
     var centered = false
+    /// The page has settings of its own: Settings › Agent offers to open them (`"settings": true`).
+    var settings = false
 
     static let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("Cadabra/Plugins")
@@ -36,7 +38,7 @@ struct AgentPlugin: Identifiable, Equatable {
     }
 
     /// `plugin.json`: {"name": "…", "entry": "index.html", "width": 440, "height": 180, "hosts": ["http://…"],
-    /// "position": "text" or "center"}.
+    /// "position": "text" or "center", "settings": true}.
     static func load(_ folder: URL) -> AgentPlugin? {
         guard let data = try? Data(contentsOf: folder.appendingPathComponent("plugin.json")),
               let manifest = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
@@ -47,7 +49,8 @@ struct AgentPlugin: Identifiable, Equatable {
         let hosts = (manifest["hosts"] as? [String] ?? []).compactMap(origin)
         return AgentPlugin(id: folder.lastPathComponent, name: manifest["name"] as? String ?? folder.lastPathComponent,
                            folder: folder, entry: entry, width: size("width", 440), height: size("height", 180), hosts: hosts,
-                           centered: (manifest["position"] as? String)?.lowercased() == "center")
+                           centered: (manifest["position"] as? String)?.lowercased() == "center",
+                           settings: manifest["settings"] as? Bool == true)
     }
 
     /// "scheme://host:port" of an http(s) address, or nil.

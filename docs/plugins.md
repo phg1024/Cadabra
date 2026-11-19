@@ -35,6 +35,7 @@ agent that says back what it heard, and its plugin.
 | `entry` | The page, inside the folder. | `index.html` |
 | `width`, `height` | The window's size to start with, 120–900 points; the page can change it. | 440, 180 |
 | `hosts` | The only places the page may reach: scheme, host and port, e.g. `"https://agent.example.com"`. | none |
+| `settings` | `true` if the page has settings of its own (a token, say): Settings › Agent then shows **Plugin settings…**, which opens the window and tells the page `settings`. | `false` |
 | `position` | Where the window opens: `"text"`, next to where you are typing, or `"center"`, the middle of the screen. | `"text"` |
 
 Pick the plugin in Settings › Agent; **Open the plugins folder** takes you there.
@@ -57,6 +58,7 @@ Cadabra defines `window.cadabra` before the page's scripts run. Listen with `cad
 | `{type: "final", text}` | You let go; these are the words. |
 | `{type: "level", value}` | How loud the microphone is, 0…1, about ten times a second while you talk. |
 | `{type: "cancel"}` | The recording was cancelled or heard nothing. The window closes. |
+| `{type: "settings"}` | **Plugin settings…** in Settings › Agent was clicked (only with `"settings": true`); nothing is recorded. Show your settings. |
 
 `cadabra.on("*", fn)` gets every event.
 
@@ -75,6 +77,10 @@ words, lets you edit them, and sends them when you press Return.
 
 Storage is per plugin, in `~/Library/Application Support/Cadabra/PluginData/<id>.json`, readable only
 by you. It is where a token goes: ask for it in the page and keep it there.
+
+Settings belong to the page: keep them in `cadabra.storage`, and show them when you're told `settings`
+(Settings › Agent › **Plugin settings…**, with `"settings": true`) and wherever else you like, such as a
+⚙︎ in the window.
 
 ## Talking to the agent
 

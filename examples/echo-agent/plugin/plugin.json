@@ -1,7 +1,1 @@
-{
-  "name": "Echo (example)",
-  "entry": "index.html",
-  "width": 440,
-  "height": 200,
-  "hosts": ["http://localhost:8787"]
-}
+{"name": "Echo (example)", "entry": "index.html", "width": 440, "height": 200, "hosts": ["http://localhost:8787"], "settings": true}
