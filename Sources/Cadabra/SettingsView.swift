@@ -96,11 +96,19 @@ private struct GeneralSettings: View {
                 Picker(t("用法", "Mode"), selection: $prefs.trigger) {
                     ForEach(TriggerMode.allCases) { Text($0.title).tag($0) }
                 }
+                Picker(t("改写键", "Rewrite key"), selection: $prefs.editHotkey) {
+                    Text(t("关闭", "Off")).tag(Hotkey?.none)
+                    ForEach(Hotkey.allCases.filter { $0 != prefs.hotkey }) { Text($0.title).tag(Hotkey?.some($0)) }
+                }
             } header: {
                 Text(t("快捷键", "Shortcut"))
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(prefs.trigger.detail(prefs.hotkey))
+                    if let edit = prefs.editHotkey {
+                        Text(t("改写：选中一段文字，按住 \(edit.keycap) 说要怎么改（「翻译成英文」「写正式一点」「整理成三条」），松开后替换选中的文字；没选中文字时，就按你说的在光标处写一段。要用到下面「纠错」的本机大模型。",
+                               "Rewrite: select some text, hold \(edit.keycap) and say how to change it (“translate to English”, “make it more formal”, “turn it into three bullet points”); when you let go, the selection is replaced. With nothing selected, it writes what you ask at the cursor. Uses the local model under Correction below."))
+                    }
                     Text(t("刚按下快捷键就又按了别的键（比如 ⌃C、⌥E），算作组合键，不录音。录音时或识别中按 esc 取消。", "Pressing another key right after the shortcut (like ⌃C or ⌥E) counts as a key combination, not a dictation. Press esc to cancel while recording or recognizing."))
                     if prefs.hotkey == .fn {
                         Text(t("Fn 键默认会弹出表情或切换输入法：请在 系统设置 › 键盘 里把「按下 🌐 键时」改成「无操作」。", "By default Fn opens the emoji picker or switches input sources: set System Settings › Keyboard › “Press 🌐 key to” to “Do Nothing”."))

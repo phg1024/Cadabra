@@ -8,6 +8,10 @@ final class HotkeyMonitor {
     var hotkey: Hotkey { didSet { isDown = false } }
     var onDown: (() -> Void)?
     var onUp: (() -> Void)?
+    /// A second key, for rewriting by voice; nil when turned off.
+    var editHotkey: Hotkey? { didSet { isEditDown = false } }
+    var onEditDown: (() -> Void)?
+    var onEditUp: (() -> Void)?
     /// Another key, modifier or click while the hotkey is held: the user is typing a shortcut.
     var onChord: (() -> Void)?
     /// Returns true when the esc cancelled something; it then goes no further.
@@ -19,6 +23,7 @@ final class HotkeyMonitor {
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var isDown = false
+    private var isEditDown = false
 
     init(hotkey: Hotkey) {
         self.hotkey = hotkey
@@ -49,6 +54,7 @@ final class HotkeyMonitor {
         source = nil
         isRunning = false
         isDown = false
+        isEditDown = false
     }
 
     /// Returns true to swallow the event.
@@ -72,15 +78,20 @@ final class HotkeyMonitor {
                 guard down != isDown else { return false }
                 isDown = down
                 down ? onDown?() : onUp?()
-            } else if isDown {
+            } else if let edit = editHotkey, code == edit.keyCode {
+                let down = edit.isHeld(in: event.flags)
+                guard down != isEditDown else { return false }
+                isEditDown = down
+                down ? onEditDown?() : onEditUp?()
+            } else if isDown || isEditDown {
                 onChord?()
             }
         case .keyDown:
             let cancelled = event.getIntegerValueField(.keyboardEventKeycode) == 53 && onEscape?() == true
-            if isDown { onChord?() }
+            if isDown || isEditDown { onChord?() }
             return cancelled
         case .leftMouseDown, .rightMouseDown:
-            if isDown { onChord?() }
+            if isDown || isEditDown { onChord?() }
         default:
             break
         }

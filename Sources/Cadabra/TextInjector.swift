@@ -42,6 +42,20 @@ enum TextInjector {
         return nil
     }
 
+    /// The selected text in the app in front: through Accessibility, or where the app doesn't say, by
+    /// copying it (⌘C) and putting the clipboard back. Empty when nothing is selected.
+    @MainActor
+    static func selection() async -> String {
+        if let element = focusedElement(), !isSecure(element) {
+            var value: CFTypeRef?
+            if AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &value) == .success,
+               let text = value as? String {
+                return text
+            }
+        }
+        return await ClipboardSwap.general.copySelection() ?? ""
+    }
+
     /// Whether `text` is now in the focused field: nil when the app doesn't expose its text.
     @MainActor
     static func landed(_ text: String) -> Bool? {
@@ -70,11 +84,13 @@ enum TextInjector {
         ClipboardSwap.general.put(text, restoreAfter: nil)
     }
 
-    private static func postCommandV() {
+    private static func postCommandV() { postCommand(9) }
+
+    /// ⌘ + a key, marked as ours. 9 is V, 8 is C.
+    static func postCommand(_ key: CGKeyCode) {
         let source = CGEventSource(stateID: .combinedSessionState)
-        let vKey: CGKeyCode = 9
         for down in [true, false] {
-            guard let event = CGEvent(keyboardEventSource: source, virtualKey: vKey, keyDown: down) else { continue }
+            guard let event = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: down) else { continue }
             event.flags = .maskCommand   // explicit, so a still-held dictation key doesn't turn this into ⌥⌘V
             event.setIntegerValueField(.eventSourceUserData, value: eventMarker)
             event.post(tap: .cghidEventTap)
@@ -135,6 +151,22 @@ final class ClipboardSwap {
             pasteboard.prepareForNewContents(with: .currentHostOnly)
             if !saved.isEmpty { pasteboard.writeObjects(saved) }
         }
+    }
+
+    /// Copies the selection in the app in front with ⌘C and puts the clipboard back. Nil when nothing
+    /// was copied (no selection, or an app that doesn't copy).
+    func copySelection() async -> String? {
+        let saved = snapshot(), before = pasteboard.changeCount
+        generation += 1   // a pending restore would put back something older
+        TextInjector.postCommand(8)
+        for _ in 0..<15 where pasteboard.changeCount == before {
+            try? await Task.sleep(for: .milliseconds(20))
+        }
+        guard pasteboard.changeCount != before else { return nil }
+        let text = pasteboard.string(forType: .string)
+        pasteboard.prepareForNewContents(with: .currentHostOnly)
+        if !saved.isEmpty { pasteboard.writeObjects(saved) }
+        return text
     }
 
     private func snapshot() -> [NSPasteboardItem] {

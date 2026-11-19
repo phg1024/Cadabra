@@ -151,7 +151,14 @@ final class Preferences: ObservableObject {
     static let shared = Preferences()
     private let defaults = UserDefaults.standard
 
-    @Published var hotkey: Hotkey { didSet { defaults.set(hotkey.rawValue, forKey: "hotkey") } }
+    @Published var hotkey: Hotkey {
+        didSet {
+            defaults.set(hotkey.rawValue, forKey: "hotkey")
+            if editHotkey == hotkey { editHotkey = nil }
+        }
+    }
+    /// The key for rewriting the selection by voice (`AppModel`); nil when turned off.
+    @Published var editHotkey: Hotkey? { didSet { defaults.set(editHotkey?.rawValue ?? "off", forKey: "editHotkey") } }
     @Published var trigger: TriggerMode { didSet { defaults.set(trigger.rawValue, forKey: "trigger") } }
     @Published var language: Language { didSet { defaults.set(language.rawValue, forKey: "language") } }
     /// An input device's UID, or empty for automatic (the default input, but not a Bluetooth headset's).
@@ -223,7 +230,10 @@ final class Preferences: ObservableObject {
         ?? Locale.preferredLanguages
 
     init() {
-        hotkey = Hotkey(rawValue: defaults.string(forKey: "hotkey") ?? "") ?? .rightOption
+        let key = Hotkey(rawValue: defaults.string(forKey: "hotkey") ?? "") ?? .rightOption
+        hotkey = key
+        let edit = defaults.string(forKey: "editHotkey").map { Hotkey(rawValue: $0) } ?? .rightCommand
+        editHotkey = edit == key ? nil : edit
         trigger = TriggerMode(rawValue: defaults.string(forKey: "trigger") ?? "") ?? .auto
         language = Language(rawValue: defaults.string(forKey: "language") ?? "") ?? .auto
         microphone = defaults.string(forKey: "microphone") ?? ""

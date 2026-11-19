@@ -59,6 +59,8 @@ Requires macOS 15 or later on Apple silicon (M1 or newer).
 - The text goes only where you were when you stopped talking: if you switched windows meanwhile, or a password field has focus, it is copied to the clipboard instead. Without Accessibility permission it is always copied.
 - Recent results are in the menu bar window (click to copy); the full, searchable history is under **All history**.
 - **Learns from your fixes**: fix a word right where it was typed (within two minutes), or right-click it in All history › Correct, and Cadabra remembers it. Only changes that sound like what was heard count (a mishearing, not rewording). A fix made twice is applied automatically from then on, unless it would replace an ordinary English word; the correction model also uses your fixes as hints. Settings › **Vocabulary** lists your terms and everything it learned.
+- **Favours your words**: where the model is unsure (不许 or *push*?), recognition leans toward your vocabulary, the English words you corrected to, and names in the text around the cursor (a colleague in the chat, a variable in the editor). What it heard clearly stays as it was. Settings › **Vocabulary**.
+- **Rewrite by voice** (needs the correction model): select some text, hold **right ⌘** and say what to do with it ("translate to English", "make it more formal", "turn it into three bullet points"); when you let go, the selection is replaced. With nothing selected, it writes what you ask at the cursor. The key is in Settings › General › Shortcut.
 - Interface language: Settings › General › **界面语言 / Language** (System, 简体中文, English).
 
 ## Privacy

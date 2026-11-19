@@ -69,6 +69,17 @@ struct CorrectionModelTests {
         #expect(try await correct(text, fixes: Self.fixes) == expected)
     }
 
+    @Test func rewritesTheSelectionAsAsked() async throws {
+        let corrector = try #require(Self.corrector, "no correction model downloaded")
+        let english = try await corrector.rewrite("明天下午三点开会，记得带电脑。", instruction: "翻译成英文", context: nil)
+        #expect(english.range(of: "tomorrow", options: .caseInsensitive) != nil)
+        #expect(!english.contains { $0.unicodeScalars.contains { $0.properties.isIdeographic } })
+        let formal = try await corrector.rewrite("这个bug明天我搞定", instruction: "改得正式一点", context: nil)
+        #expect(formal != "这个bug明天我搞定" && !formal.isEmpty)
+        let written = try await corrector.rewrite(nil, instruction: "写一句简短的生日祝福", context: FocusContext(before: "妈妈：", after: ""))
+        #expect(!written.isEmpty && written.count < 200 && !written.contains("妈妈："))
+    }
+
     /// A name written in the text around the cursor is written the same way; without it, nothing is guessed.
     @Test func usesTheTextAroundTheCursor() async throws {
         let corrector = try #require(Self.corrector, "no correction model downloaded")

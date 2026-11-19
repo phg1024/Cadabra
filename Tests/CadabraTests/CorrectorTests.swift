@@ -64,4 +64,12 @@ struct CorrectorTests {
     @Test func answerAllowsShortPhrasesSomeSlack() {
         #expect(Corrector.answer("Aloha!", for: "啊lo下。") == "Aloha!")
     }
+
+    @Test func rewriteAnswersLoseWrappers() {
+        #expect(Corrector.cleanRewrite("<think>\n\n</think>\n\nSee you at 3.") == "See you at 3.")
+        #expect(Corrector.cleanRewrite("```markdown\n- one\n- two\n```") == "- one\n- two")
+        #expect(Corrector.cleanRewrite("“好的，明天见。”") == "好的，明天见。")
+        #expect(Corrector.cleanRewrite("\"a\" and \"b\"") == "\"a\" and \"b\"")   // not one quote around it all
+        #expect(Corrector.cleanRewrite("<文字>改好了</文字>") == "改好了")
+    }
 }

@@ -42,6 +42,19 @@ real Mac. Run through this list before a release, and after changing the file na
 - [ ] Rewrite a word into one that sounds nothing like it: nothing is learned.
 - [ ] Fix the same word twice: the next dictation has it right before correction.
 
+## Hotwords and context (HotwordDecoder, FocusContext)
+
+- [ ] `Cadabra --transcribe a.wav` and `CADABRA_ASR=sherpa Cadabra --transcribe a.wav` agree on most
+      recordings; `--hotwords "push, commit"` gets those words where the model was unsure.
+- [ ] Dictating a name that appears just before the cursor (in TextEdit) writes it that way.
+
+## Rewrite by voice (AppModel, Corrector.rewrite)
+
+- [ ] Select a sentence in TextEdit, hold right ⌘, say "翻译成英文": the selection is replaced.
+- [ ] In an Electron app (Slack) the selection is read by copying, and the clipboard comes back.
+- [ ] Nothing selected: "写一句感谢的话" writes at the cursor.
+- [ ] esc while the HUD says it is rewriting: nothing is pasted.
+
 ## Correction model (Corrector)
 
 - [ ] Download starts, shows progress, can be cancelled.

@@ -224,11 +224,20 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
         if let around, !around.isEmpty {
             system += "\n这段话要插入到下面这段文字的 ⟨光标⟩ 处。它不是要纠错的内容，不要改它，也不要输出它；但如果识别结果里有词明显是这段文字里出现过的人名或术语被听成了别的字，就改成这段文字里的写法，中文听成了英文名或英文名听成了中文都照改：\n\(around.prompt)"
         }
-        var tokens = tokenize(prompt(system: system, user: "<text>\(text)</text>"), vocab: vocab)
         let inputTokens = tokenize(text, vocab: vocab).count
-        guard tokens.count + inputTokens * 2 + 64 < llama_n_ctx(context) else { throw Failure.tooLong }
+        let output = try generate(system: system, user: "<text>\(text)</text>", maxTokens: inputTokens * 2 + 64, timeout: Self.timeout)
+        guard let answer = Self.answer(output, for: text, keep: keep) else { throw Failure.badAnswer }
+        return answer
+    }
 
-        let deadline = Date().addingTimeInterval(Self.timeout)
+    /// Greedy generation from the model's chat template, up to `maxTokens` or the end of the answer. On the queue.
+    private func generate(system: String, user: String, maxTokens: Int, timeout: TimeInterval) throws -> String {
+        guard let model, let context, let sampler else { throw Failure.notReady }
+        let vocab = llama_model_get_vocab(model)
+        var tokens = tokenize(prompt(system: system, user: user), vocab: vocab)
+        guard tokens.count + maxTokens < llama_n_ctx(context) else { throw Failure.tooLong }
+
+        let deadline = Date().addingTimeInterval(timeout)
         llama_memory_clear(llama_get_memory(context), true)
         llama_sampler_reset(sampler)
         let status = tokens.withUnsafeMutableBufferPointer { llama_decode(context, llama_batch_get_one($0.baseAddress, Int32($0.count))) }
@@ -236,7 +245,7 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
 
         var output = Data()
         var piece = [CChar](repeating: 0, count: 256)
-        for _ in 0..<(inputTokens * 2 + 64) {
+        for _ in 0..<maxTokens {
             guard Date() < deadline else { throw Failure.timedOut }
             var token = llama_sampler_sample(sampler, context, -1)
             if llama_vocab_is_eog(vocab, token) { break }
@@ -244,9 +253,77 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
             if n > 0 { output.append(contentsOf: piece[0..<Int(n)].map { UInt8(bitPattern: $0) }) }
             guard llama_decode(context, llama_batch_get_one(&token, 1)) == 0 else { throw Failure.decodeFailed }
         }
+        return String(decoding: output, as: UTF8.self)
+    }
 
-        guard let answer = Self.answer(String(decoding: output, as: UTF8.self), for: text, keep: keep) else { throw Failure.badAnswer }
-        return answer
+    // MARK: Rewriting by voice
+
+    private static let rewriteInstructions = """
+        你是写作助手。用户选中了一段文字，又用语音说了一个要求（语音识别的结果，可能有个别错字）。\
+        按要求处理这段文字：改写、翻译、换语气、缩短、扩写、整理格式、纠错都可以。\
+        只输出处理后的文字本身，不要解释，不要加引号、标签或 Markdown 代码块。\
+        除非要求翻译，否则保持原文的语言；要求没提到的地方尽量保持原样。
+        """
+
+    private static let writeInstructions = """
+        你是写作助手。用户用语音说了一个要求（语音识别的结果，可能有个别错字），请写出要插入到光标处的文字。\
+        只输出这段文字本身，不要解释，不要加引号、标签或 Markdown 代码块。\
+        用要求所用的语言来写，除非要求另有说明。
+        """
+
+    /// Waits for the model, loading it again if it was put to rest. Throws when correction is off or the
+    /// model isn't downloaded.
+    @MainActor
+    func ready() async throws {
+        if state == .resting { wake() }
+        let deadline = Date().addingTimeInterval(120)
+        while Date() < deadline {
+            switch state {
+            case .ready: return
+            case .loading, .resting: try await Task.sleep(for: .milliseconds(100))
+            default: throw Failure.notReady
+            }
+        }
+        throw Failure.timedOut
+    }
+
+    /// `selection` rewritten as `instruction` says, or with no selection, new text for the cursor.
+    func rewrite(_ selection: String?, instruction: String, context: FocusContext?) async throws -> String {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                continuation.resume(with: Result {
+                    guard let model = self.model else { throw Failure.notReady }
+                    let vocab = llama_model_get_vocab(model)
+                    var system: String, user: String, maxTokens: Int
+                    if let selection, !selection.isEmpty {
+                        system = Self.rewriteInstructions
+                        user = "<要求>\(instruction)</要求>\n<文字>\(selection)</文字>"
+                        maxTokens = min(2500, self.tokenize(selection, vocab: vocab).count * 3 + 200)
+                    } else {
+                        system = Self.writeInstructions
+                        if let context, !context.isEmpty { system += "\n光标前后的文字（⟨光标⟩ 是插入的位置），供参考，不要重复它：\n\(context.prompt)" }
+                        user = "<要求>\(instruction)</要求>"
+                        maxTokens = 800
+                    }
+                    let output = try self.generate(system: system, user: user, maxTokens: maxTokens, timeout: 90)
+                    let text = Self.cleanRewrite(output)
+                    guard !text.isEmpty else { throw Failure.badAnswer }
+                    return text
+                })
+            }
+        }
+    }
+
+    /// The answer without thinking, tags, a code fence or quotes around the whole of it.
+    static func cleanRewrite(_ output: String) -> String {
+        var text = output.replacing(#/(?s)<think>.*?</think>/#, with: "").replacing(#/</?(文字|text|要求)>/#, with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        if let fenced = text.wholeMatch(of: #/(?s)```[A-Za-z]*\n(.*)\n```/#) { text = String(fenced.1) }
+        for (open, close) in [("\"", "\""), ("“", "”"), ("「", "」")] where text.count > 1 && text.hasPrefix(open) && text.hasSuffix(close) {
+            let inner = text.dropFirst().dropLast()
+            if !inner.contains(close) { text = String(inner) }
+        }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// The model's output as a correction of `text`, or nil when it is something else. A change that

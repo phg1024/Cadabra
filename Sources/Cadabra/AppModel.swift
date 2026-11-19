@@ -25,6 +25,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var recordingStart = Date()
     /// Recording keeps going after the key is released; the next press ends it.
     @Published private(set) var latched = false
+    /// This recording is an instruction for rewriting the selection (the rewrite key), not dictation.
+    @Published private(set) var editing = false
     @Published private(set) var pending = 0
     @Published private(set) var levels = [Float](repeating: 0, count: AppModel.levelCount)
     @Published private(set) var micStatus = AVCaptureDevice.authorizationStatus(for: .audio)
@@ -55,6 +57,8 @@ final class AppModel: ObservableObject {
     private var captureTimeout: DispatchWorkItem?
     /// Dictations being recognized and corrected; esc cancels them.
     private var jobs: [UUID: Task<Void, Never>] = [:]
+    /// While rewriting: the selection, read when the recording started.
+    private var selection: Task<String, Never>?
 
     init(prefs: Preferences, history: HistoryStore) {
         self.prefs = prefs
@@ -78,11 +82,15 @@ final class AppModel: ObservableObject {
 
         hotkeys.onDown = { [weak self] in MainActor.assumeIsolated { self?.hotkeyDown() } }
         hotkeys.onUp = { [weak self] in MainActor.assumeIsolated { self?.hotkeyUp() } }
+        hotkeys.editHotkey = prefs.editHotkey
+        hotkeys.onEditDown = { [weak self] in MainActor.assumeIsolated { self?.hotkeyDown(edit: true) } }
+        hotkeys.onEditUp = { [weak self] in MainActor.assumeIsolated { self?.hotkeyUp(edit: true) } }
         hotkeys.onChord = { [weak self] in MainActor.assumeIsolated { self?.hotkeyChord() } }
         hotkeys.onEscape = { [weak self] in MainActor.assumeIsolated { self?.cancel() ?? false } }
         if accessibilityGranted { hotkeyActive = hotkeys.start() }
 
         prefs.$hotkey.dropFirst().sink { [weak self] key in self?.hotkeys.hotkey = key }.store(in: &subscriptions)
+        prefs.$editHotkey.dropFirst().sink { [weak self] key in self?.hotkeys.editHotkey = key }.store(in: &subscriptions)
         prefs.$checkUpdatesWeekly.sink { UpdateChecker.shared.scheduleWeekly($0) }.store(in: &subscriptions)
         prefs.$language.dropFirst().removeDuplicates().sink { [weak self] _ in
             DispatchQueue.main.async { self?.loadModel() }   // after the new value is stored
@@ -165,31 +173,32 @@ final class AppModel: ObservableObject {
 
     // MARK: Hotkey
 
-    private func hotkeyDown() {
+    /// `edit`: the rewrite key rather than the dictation key.
+    private func hotkeyDown(edit: Bool = false) {
         pressTime = Date()
         if isRecording {
-            if prefs.trigger != .auto || latched { stop() }
+            if edit == editing, prefs.trigger != .auto || latched { stop() }
             return
         }
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.pendingStart = nil
-            self.pressStartedRecording = self.start(latched: self.prefs.trigger == .toggle)
+            self.pressStartedRecording = self.start(latched: self.prefs.trigger == .toggle, edit: edit)
         }
         pendingStart = work
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.armDelay, execute: work)
     }
 
-    private func hotkeyUp() {
+    private func hotkeyUp(edit: Bool = false) {
         if let work = pendingStart {
             // Released before the microphone opened: a quick tap, which starts a hands-free recording.
             work.cancel()
             pendingStart = nil
-            if prefs.trigger != .pushToTalk { start(latched: true) }
+            if prefs.trigger != .pushToTalk { start(latched: true, edit: edit) }
             return
         }
         defer { pressStartedRecording = false }
-        guard isRecording, pressStartedRecording else { return }
+        guard isRecording, pressStartedRecording, edit == editing else { return }
         switch prefs.trigger {
         case .pushToTalk:
             stop()
@@ -269,7 +278,7 @@ final class AppModel: ObservableObject {
     }
 
     @discardableResult
-    private func start(latched: Bool) -> Bool {
+    private func start(latched: Bool, edit: Bool = false) -> Bool {
         guard !isRecording else { return false }
         guard micStatus == .authorized else {
             requestMicrophone()
@@ -284,6 +293,8 @@ final class AppModel: ObservableObject {
         }
         EditWatcher.shared.finish()
         if prefs.correction { Corrector.shared.wake() }
+        editing = edit
+        selection = edit ? Task { await TextInjector.selection() } : nil
         self.latched = latched
         isRecording = true
         recordingStart = Date()
@@ -303,6 +314,7 @@ final class AppModel: ObservableObject {
         guard isRecording else { return }
         let target = TextInjector.Target.current()
         let context = prefs.useContext && (prefs.hotwords || prefs.correction) ? FocusContext.read() : nil
+        let edit = editing
         let samples = finishRecording()
         let duration = Double(samples.count) / Double(ASREngine.sampleRate)
         let rms = samples.isEmpty ? 0 : sqrt(samples.reduce(0) { $0 + $1 * $1 } / Float(samples.count))
@@ -312,6 +324,9 @@ final class AppModel: ObservableObject {
             return
         }
         if prefs.sounds { Sounds.stop() }
+        if edit, let selection {
+            return rewrite(samples, selection: selection, target: target, context: context)
+        }
         pending += 1
         hud.show(.transcribing)
         let job = UUID()
@@ -361,6 +376,7 @@ final class AppModel: ObservableObject {
     func cancel(silently: Bool = false) -> Bool {
         pendingStart?.cancel()
         pendingStart = nil
+        selection = nil
         if isRecording {
             _ = finishRecording()
             if silently { hud.hide() } else { hud.flash(.message(t("已取消", "Cancelled"), symbol: "xmark.circle")) }
@@ -378,6 +394,7 @@ final class AppModel: ObservableObject {
         feedback = nil
         let samples = recorder.stop()
         isRecording = false
+        editing = false
         latched = false
         pressStartedRecording = false
         return samples
@@ -390,11 +407,47 @@ final class AppModel: ObservableObject {
         if Date().timeIntervalSince(recordingStart) > Self.maxRecording { stop() }
     }
 
+    /// The rewrite key: the recording is an instruction for the selection (or, with none, for new text at
+    /// the cursor), carried out by the correction model; the answer replaces the selection.
+    private func rewrite(_ samples: [Float], selection: Task<String, Never>, target: TextInjector.Target?, context: FocusContext?) {
+        self.selection = nil
+        guard prefs.correction, CorrectionModel.allCases.contains(where: \.isDownloaded) || Corrector.shared.state == .ready else {
+            hud.flash(.message(t("改写要用本机大模型：先在 设置 › 通用 › 纠错 里打开并下载", "Rewriting needs the local model: turn on Correction in Settings › General and download it"),
+                               symbol: "sparkles"))
+            return
+        }
+        pending += 1
+        hud.show(.transcribing)
+        let job = UUID()
+        jobs[job] = Task {
+            defer { pending -= 1; jobs[job] = nil }
+            do {
+                let hotwords = prefs.hotwords ? prefs.vocabularyTerms + LearnedFixes.shared.hotwords + (context?.words() ?? []) : []
+                let instruction = try await engine.transcribe(samples, hotwords: hotwords)
+                let selected = await selection.value
+                guard !Task.isCancelled, !instruction.text.isEmpty else { return }
+                hud.show(.thinking(selected.isEmpty ? t("正在写：\(instruction.text)", "Writing: \(instruction.text)")
+                                                    : t("正在改：\(instruction.text)", "Rewriting: \(instruction.text)")))
+                try await Corrector.shared.ready()
+                let began = Date()
+                Corrector.shared.scheduleRest()
+                let result = try await Corrector.shared.rewrite(selected.isEmpty ? nil : selected, instruction: instruction.text,
+                                                                context: selected.isEmpty ? context : nil)
+                log.notice("rewrote \(selected.count) characters into \(result.count) in \(Int(Date().timeIntervalSince(began) * 1000)) ms")
+                guard !Task.isCancelled else { return }
+                deliver(instruction, text: result, to: target, dictated: false)
+            } catch {
+                if !isRecording { hud.flash(.message(error.localizedDescription, symbol: "exclamationmark.triangle")) }
+            }
+        }
+    }
+
     /// Types or copies the text; returns it and its history entry.
     @discardableResult
-    private func deliver(_ transcript: Transcript, text recognized: String, to target: TextInjector.Target?) -> (String, UUID?) {
+    /// `dictated`: the user's own words (learned from, trailing period setting applied), not a rewrite.
+    private func deliver(_ transcript: Transcript, text recognized: String, to target: TextInjector.Target?, dictated: Bool = true) -> (String, UUID?) {
         var text = recognized
-        if prefs.dropTrailingPeriod, let last = text.last, "。.".contains(last) { text.removeLast() }
+        if dictated, prefs.dropTrailingPeriod, let last = text.last, "。.".contains(last) { text.removeLast() }
         guard !text.isEmpty else {
             if !isRecording { hud.flash(.message(t("没有识别出文字", "No speech recognized"), symbol: "questionmark.circle")) }
             return (text, nil)
@@ -412,7 +465,7 @@ final class AppModel: ObservableObject {
                 if landed == false, self?.isRecording == false { self?.hud.flash(.done(text, pasted: false)) }
             }
         }
-        if pasted && prefs.learnFromEdits {
+        if pasted && dictated && prefs.learnFromEdits {
             EditWatcher.shared.begin(typed: text) { [weak self] edited in
                 let fixes = LearnedFixes.shared.learn(typed: text, edited: edited)
                 guard !fixes.isEmpty else { return }

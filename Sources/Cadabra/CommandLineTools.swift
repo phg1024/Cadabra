@@ -5,6 +5,7 @@ import SwiftUI
 ///   Cadabra --transcribe a.wav [b.wav ...] [--language zh] [--hotwords "push, commit"] [--correct]
 ///                                      (CADABRA_ASR=sherpa: sherpa-onnx's decoding, to compare)
 ///   Cadabra --snapshot <dir> [en|zh]  renders the main views to PNG
+///   Cadabra --rewrite "<instruction>" ["<selected text>"]   what the rewrite key would do
 ///   Cadabra --make-icon <dir.iconset>
 ///   Cadabra --microphones             lists the inputs and the one a recording would use
 ///   Cadabra --record <seconds> <out.wav> [microphone UID]   records like the hotkey does
@@ -17,6 +18,8 @@ enum CommandLineTools {
         case "--snapshot" where args.count > 2:
             if args.count > 3 { Preferences.languageOverride = UILanguage(rawValue: args[3]) }
             MainActor.assumeIsolated { snapshot(into: URL(fileURLWithPath: args[2])) }
+        case "--rewrite" where args.count > 2:
+            rewrite(instruction: args[2], selection: args.count > 3 ? args[3] : nil)
         case "--make-icon" where args.count > 2:
             MainActor.assumeIsolated { makeIcon(URL(fileURLWithPath: args[2])) }
         case "--microphones":
@@ -30,6 +33,23 @@ enum CommandLineTools {
             return false   // e.g. -NSDocumentRevisionsDebugMode from Xcode
         }
         return true
+    }
+
+    private static func rewrite(instruction: String, selection: String?) {
+        do { try Corrector.shared.loadForCommandLine(.recommended) } catch { print("correction model: \(error.localizedDescription)"); exit(1) }
+        let done = DispatchSemaphore(value: 0)
+        Task.detached {
+            let start = Date()
+            do {
+                let result = try await Corrector.shared.rewrite(selection, instruction: instruction, context: nil)
+                print(String(format: "%.1f s\n%@", Date().timeIntervalSince(start), result))
+            } catch {
+                print(error.localizedDescription)
+            }
+            done.signal()
+        }
+        done.wait()
+        Corrector.shared.shutDown()
     }
 
     private static func record(seconds: Double, to url: URL, uid: String) {

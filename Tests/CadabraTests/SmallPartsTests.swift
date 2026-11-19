@@ -99,6 +99,24 @@ struct HotkeyMonitorTests {
         #expect(calls == ["down", "chord", "up"])
     }
 
+    @Test func theRewriteKeyIsASecondHotkey() {
+        let monitor = HotkeyMonitor(hotkey: .rightOption)
+        monitor.editHotkey = .rightCommand
+        var calls: [String] = []
+        monitor.onDown = { calls.append("down") }
+        monitor.onEditDown = { calls.append("edit down") }
+        monitor.onEditUp = { calls.append("edit up") }
+        monitor.onChord = { calls.append("chord") }
+        let held = CGEventFlags(rawValue: CGEventFlags.maskCommand.rawValue | 0x10)   // right ⌘
+        _ = monitor.handle(.flagsChanged, key(54, flags: held))
+        _ = monitor.handle(.keyDown, key(8, flags: held))   // ⌘C: a shortcut
+        _ = monitor.handle(.flagsChanged, key(54))
+        #expect(calls == ["edit down", "chord", "edit up"])
+        monitor.editHotkey = nil
+        _ = monitor.handle(.flagsChanged, key(54, flags: held))
+        #expect(calls.count == 3)
+    }
+
     @Test func ourOwnPasteIsIgnored() {
         let monitor = HotkeyMonitor(hotkey: .rightOption)
         var chords = 0

@@ -6,6 +6,8 @@ final class HUDState: ObservableObject {
         case hidden
         case recording
         case transcribing
+        /// The language model at work (rewriting by voice).
+        case thinking(String)
         case done(String, pasted: Bool)
         case message(String, symbol: String)
     }
@@ -139,6 +141,11 @@ struct HUDView: View {
                     .foregroundStyle(theme.barText.opacity(0.6))
                     .fixedSize()
             }
+        case .thinking(let text):
+            HStack(spacing: 10) {
+                ProgressView().controlSize(.small).tint(theme.barText)
+                Text(text).font(.system(size: 13, weight: .medium)).lineLimit(1)
+            }
         case .transcribing:
             HStack(spacing: 10) {
                 ProgressView().controlSize(.small).tint(theme.barText)
@@ -168,6 +175,11 @@ struct HUDView: View {
     }
 
     private var hint: String {
+        if model.editing {
+            return model.latched || prefs.trigger == .toggle
+                ? t("说要怎么改 · 再按一下结束", "Say how to change it · press again to finish")
+                : t("说要怎么改 · 松开结束", "Say how to change it · release to finish")
+        }
         if model.latched || prefs.trigger == .toggle { return t("再按 \(prefs.hotkey.keycap) 结束 · esc 取消", "Press \(prefs.hotkey.keycap) again to finish · esc to cancel") }
         return t("松开结束 · esc 取消", "Release to finish · esc to cancel")
     }
