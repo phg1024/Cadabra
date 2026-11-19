@@ -372,6 +372,10 @@ lsof -i -a -p $(pgrep -x Cadabra)
         <p><span lang="zh">不能，需要 Apple 芯片（M1 或更新）。</span><span lang="en">No, it needs Apple silicon (M1 or newer).</span></p>
       </details>
       <details>
+        <summary><span lang="zh">需要什么配置的 Mac？</span><span lang="en">What kind of Mac does it need?</span></summary>
+        <p><span lang="zh">macOS 15 或更新、Apple 芯片（M1 或更新）就行。只用听写时，Cadabra 大约占 1 GB 内存，8 GB 内存的 Mac 就够用。在 M5 Max 上实测，10 秒的话约 0.1 秒识别完，90 秒的长段不到 1 秒；较早的芯片会慢一些，但同样全在本机完成。可选的纠错模型另算：4B 版下载约 2.7 GB，用的时候再占约 3 GB 内存，建议 16 GB 以上；35B 版约 22 GB，用的时候占约 21 GB，需要 48 GB 以上内存。闲置时它会自己从内存卸载。</span><span lang="en">macOS 15 or later on Apple silicon (M1 or newer). For dictation alone Cadabra uses about 1 GB of memory, so an 8 GB Mac is plenty. Measured on an M5 Max, 10 seconds of speech is recognized in about 0.1 s and 90 seconds in under 1 s; older chips are slower, and it all still happens on your Mac. The optional correction model comes on top: the 4B version is a 2.7 GB download and takes about 3 GB more memory while in use (16 GB or more recommended); the 35B version is 22 GB, takes about 21 GB while in use, and needs 48 GB of memory or more. It unloads itself when idle.</span></p>
+      </details>
+      <details>
         <summary><span lang="zh">戴着 AirPods 能用吗？</span><span lang="en">Can I use it with AirPods on?</span></summary>
         <p><span lang="zh">能。默认会用电脑或摄像头的麦克风录音，耳机继续放音乐。用耳机的麦克风会让它切到通话模式，开始慢好几秒、声音也会变闷；要用的话可以在设置里指定。</span><span lang="en">Yes. By default it records with the Mac's or camera's microphone and leaves your AirPods playing; using their microphone switches them to call mode, which delays the start and muffles the sound. You can still pick it in Settings.</span></p>
       </details>
