@@ -63,11 +63,16 @@ real Mac. Run through this list before a release, and after changing the file na
 
 ## Agent key (Agent)
 
-- [ ] Settings › Agent › Test connection says connected (and that a wrong token is refused).
-- [ ] Hold the agent key, ask something: the words appear in a small window near the text; nothing
-      is sent until Return; esc closes it. The reply shows in the same window; the speaker button
-      reads it aloud (or it reads by itself with Read replies aloud on).
-- [ ] A follow-up within five minutes continues the conversation.
+With `examples/echo-agent` running and its plugin chosen in Settings › Agent:
+
+- [ ] Hold the agent key: the plugin's window opens near the text at once, the orb follows the
+      microphone, and the words appear in it as you talk.
+- [ ] Let go: the words stay, editable; nothing is sent until Return; esc closes the window and the
+      app you were in has the keyboard again.
+- [ ] Return: the status shows the agent's activity, then the reply; 🔊 reads it aloud.
+- [ ] The token (⚙︎) is kept across restarts; a wrong one is refused by `TOKEN=… agent.py`.
+- [ ] A plugin whose page fetches a host not in its `hosts` gets a network error.
+- [ ] A recording that hears nothing closes the window.
 
 ## Correction model (Corrector)
 

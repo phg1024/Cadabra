@@ -201,8 +201,8 @@ final class AppModel: ObservableObject {
             if pressed == mode, prefs.trigger != .auto || latched { stop() }
             return
         }
-        if pressed == .agent, AgentPlugin.selected.flatMap({ Agent.endpoint($0.address, $0.api.ask) }) == nil {
-            hud.flash(.message(t("先在 设置 › Agent 里选好 agent 插件和地址", "Pick an agent plugin and its address in Settings › Agent first"), symbol: "sparkles"))
+        if pressed == .agent, AgentPlugin.selected == nil {
+            hud.flash(.message(t("先装一个 agent 插件，在 设置 › Agent 里选它", "Install an agent plugin and pick it in Settings › Agent first"), symbol: "sparkles"))
             return
         }
         let work = DispatchWorkItem { [weak self] in
@@ -327,7 +327,7 @@ final class AppModel: ObservableObject {
         // Into the field only when nothing earlier is still on its way there.
         typingLive = prefs.livePreview == .field && prefs.autoPaste && mode == .dictate && pending == 0
         if typingLive { typer.begin(in: TextInjector.Target.current()) }
-        if mode == .agent { Agent.shared.listen(near: hud.anchor) }
+        if mode == .agent { PluginHost.shared.listen(near: hud.anchor) }
         if prefs.livePreview != .off || mode == .agent {
             previewTimer = Timer.scheduledTimer(withTimeInterval: Self.previewEvery, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.preview() }
@@ -355,7 +355,7 @@ final class AppModel: ObservableObject {
         let rms = samples.isEmpty ? 0 : sqrt(samples.reduce(0) { $0 + $1 * $1 } / Float(samples.count))
         guard duration >= 0.3, rms >= 0.001 else {
             if typingLive { typer.clear() }
-            if mode == .agent { Agent.shared.close() }
+            if mode == .agent { PluginHost.shared.cancel() }
             if prefs.sounds { Sounds.error() }
             hud.flash(.message(duration < 0.3 ? t("录音太短", "Too short") : t("没有听到声音", "Didn’t hear anything"), symbol: "waveform.slash"))
             return
@@ -417,7 +417,7 @@ final class AppModel: ObservableObject {
         pendingStart = nil
         selection = nil
         if isRecording {
-            if mode == .agent { Agent.shared.close() }
+            if mode == .agent { PluginHost.shared.cancel() }
             _ = finishRecording()
             if typingLive { typer.clear() }
             if silently { hud.hide() } else { hud.flash(.message(t("已取消", "Cancelled"), symbol: "xmark.circle")) }
@@ -449,7 +449,7 @@ final class AppModel: ObservableObject {
             guard let transcript = try? await engine.transcribe(audio, hotwords: hotwords),
                   isRecording, recordingStart == session else { return }
             let text = LearnedFixes.shared.apply(transcript.text)
-            if mode == .agent { return Agent.shared.hear(text) }
+            if mode == .agent { return PluginHost.shared.partial(text) }
             // Typed into the field; where that stopped working, shown in the bar instead.
             if inField, typer.show(text) { liveText = "" } else { liveText = text }
         }
@@ -471,13 +471,13 @@ final class AppModel: ObservableObject {
 
     private func push(level: Float) {
         guard isRecording else { return }
+        if mode == .agent { PluginHost.shared.level(level) }
         levels.removeFirst()
         levels.append(level)
         if Date().timeIntervalSince(recordingStart) > Self.maxRecording { stop() }
     }
 
-    /// The agent key: the words go to the agent's panel for the user to check and send with Return.
-    /// Nothing leaves this Mac from here.
+    /// The agent key: the final words go to the agent plugin's page; what happens to them is up to it.
     private func ask(_ samples: [Float]) {
         pending += 1
         let job = UUID()
@@ -489,13 +489,13 @@ final class AppModel: ObservableObject {
                 guard !Task.isCancelled else { return }
                 let words = LearnedFixes.shared.apply(RepeatedEnding.fix(transcript.text))
                 guard !words.isEmpty else {
-                    Agent.shared.close()
+                    PluginHost.shared.cancel()
                     hud.flash(.message(t("没有识别出文字", "No speech recognized"), symbol: "questionmark.circle"))
                     return
                 }
-                Agent.shared.confirm(words)
+                PluginHost.shared.final(words)
             } catch {
-                Agent.shared.close()
+                PluginHost.shared.cancel()
                 hud.flash(.message(error.localizedDescription, symbol: "exclamationmark.triangle"))
             }
         }

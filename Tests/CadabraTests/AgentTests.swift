@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import WebKit
 @testable import Cadabra
 
 /// Answers requests to agent.test from a handler, so the agent's requests can be checked without a network.
@@ -28,96 +29,36 @@ final class StubProtocol: URLProtocol {
     override func stopLoading() {}
 }
 
-@Suite(.serialized)
-struct AgentTests {
-    init() { URLProtocol.registerClass(StubProtocol.self) }
-
-    static let streaming = AgentPlugin.API(address: "http://agent.test", streams: true, speech: "/speech", health: "/health")
-
-    @Test func anotherAgentsFieldsAndToken() async throws {
-        var api = AgentPlugin.API(address: "http://agent.test", ask: "/v1/ask")
-        api.textField = "prompt"
-        api.replyField = "answer"
-        api.conversationHeader = nil
-        StubProtocol.handler = { request, body in
-            let sent = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
-            #expect(sent?["prompt"] as? String == "hi")
-            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-for-test")
-            #expect(request.value(forHTTPHeaderField: "X-Conversation-Id") == nil)
-            #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
-            return (200, ["answer": "hello", "conversation_id": "ignored"])
-        }
-        let (reply, id) = try await Agent.ask("hi", api: api, url: Agent.endpoint(api.address, api.ask)!, token: "secret-for-test", conversation: "c1")
-        #expect(reply == "hello")
-        #expect(id == nil)
+struct PluginHostTests {
+    func plugin(_ hosts: [String]) -> AgentPlugin {
+        AgentPlugin(id: "test", name: "Test", folder: URL(fileURLWithPath: "/tmp"), entry: URL(fileURLWithPath: "/tmp/index.html"),
+                    width: 440, height: 180, hosts: hosts.compactMap(AgentPlugin.origin))
     }
 
-    @Test func endpoints() {
-        #expect(Agent.endpoint("http://localhost:8787", "text")?.absoluteString == "http://localhost:8787/text")
-        #expect(Agent.endpoint(" http://192.168.1.20:8080/ ", "/speech")?.path == "/speech")
-        #expect(Agent.endpoint("http://localhost:8787", "")?.absoluteString == "http://localhost:8787")
-        #expect(Agent.endpoint("localhost:8787", "text") == nil)
-        #expect(Agent.endpoint("", "text") == nil)
+    /// The rules have to compile: when they don't, the page isn't loaded at all (and before, a rule that
+    /// didn't compile silently let everything through).
+    @Test @MainActor func theRulesCompile() async throws {
+        let rules = PluginHost.rules(for: plugin(["http://localhost:8787", "https://agent.example"]))
+        let list: WKContentRuleList? = try await withCheckedThrowingContinuation { continuation in
+            WKContentRuleListStore.default().compileContentRuleList(forIdentifier: "cadabra-test-\(UUID().uuidString)",
+                                                                    encodedContentRuleList: rules) { list, error in
+                if let error { continuation.resume(throwing: error) } else { continuation.resume(returning: list) }
+            }
+        }
+        #expect(list != nil)
     }
 
-    @Test func asksWithTheTextAndTheConversation() async throws {
-        StubProtocol.handler = { request, body in
-            let sent = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
-            #expect(request.httpMethod == "POST")
-            #expect(request.url?.path == "/text")
-            #expect(sent?["text"] as? String == "明天的会几点")
-            #expect(request.value(forHTTPHeaderField: "X-Conversation-Id") == "c-abc")
-            return (200, ["text": "明天的会几点", "reply": " 十点半。 ", "conversation_id": "c-abc"])
-        }
-        let (reply, id) = try await Agent.ask("明天的会几点", api: Self.streaming, url: URL(string: "http://agent.test/text")!, token: nil, conversation: "c-abc")
-        #expect(reply == "十点半。")
-        #expect(id == "c-abc")
-    }
-
-    @Test func anErrorFromTheAgentIsShownAsItSaysIt() async {
-        StubProtocol.handler = { _, _ in (503, ["error": "正在处理其他请求，请稍后再试"]) }
-        await #expect(throws: Agent.Failure.self) {
-            _ = try await Agent.ask("你好", api: Self.streaming, url: URL(string: "http://agent.test/text")!, token: nil, conversation: nil)
-        }
-        do { _ = try await Agent.ask("你好", api: Self.streaming, url: URL(string: "http://agent.test/text")!, token: nil, conversation: nil) } catch {
-            #expect(error.localizedDescription == "正在处理其他请求，请稍后再试")
-        }
-    }
-
-    @Test func repliesAreReadASentenceOrTwoAtATime() {
-        #expect(Speaker.chunks("关着呢。要我打开吗？") == ["关着呢。要我打开吗？"])
-        let long = String(repeating: "这是一句挺长的话，", count: 5) + "结束。" + "下一句也很长很长很长很长很长很长很长很长很长很长很长很长。"
-        let chunks = Speaker.chunks(long)
-        #expect(chunks.count == 2)
-        #expect(chunks.allSatisfy { !$0.isEmpty })
-        #expect(Speaker.chunks("It's closed. Want me to open it?") == ["It's closed.Want me to open it?"])
-    }
-
-    @Test func aStreamingAgentSaysWhatItIsDoing() async throws {
-        StubProtocol.handler = { request, _ in
-            #expect(request.value(forHTTPHeaderField: "Accept")?.contains("application/x-ndjson") == true)
-            return (200, """
-                {"type": "activity", "state": "thinking"}
-                {"type": "activity", "state": "researching"}
-                {"type": "result", "text": "明天天气", "reply": "明天晴。", "conversation_id": "c-x"}
-
-                """)
-        }
-        let seen = Seen()
-        let (reply, id) = try await Agent.ask("明天天气", api: Self.streaming, url: URL(string: "http://agent.test/text")!, token: nil, conversation: nil) { seen.add($0) }
-        #expect(reply == "明天晴。")
-        #expect(id == "c-x")
-        #expect(seen.states == ["thinking", "researching"])
-    }
-
-    @Test func aStreamedErrorIsAnError() async {
-        StubProtocol.handler = { _, _ in (200, "{\"type\": \"activity\", \"state\": \"thinking\"}\n{\"type\": \"error\", \"error\": \"回复超时了\"}\n") }
-        do {
-            _ = try await Agent.ask("你好", api: Self.streaming, url: URL(string: "http://agent.test/text")!, token: nil, conversation: nil)
-            Issue.record("no error")
-        } catch {
-            #expect(error.localizedDescription == "回复超时了")
-        }
+    @Test func blockEverythingThenLetItsHostsThrough() throws {
+        let rules = try #require(try JSONSerialization.jsonObject(with: Data(PluginHost.rules(for: plugin(["http://localhost:8787"])).utf8)) as? [[String: Any]])
+        let filters = rules.compactMap { ($0["trigger"] as? [String: Any])?["url-filter"] as? String }
+        let actions = rules.compactMap { ($0["action"] as? [String: Any])?["type"] as? String }
+        #expect(Array(actions.prefix(2)) == ["block", "block"])
+        #expect(actions.dropFirst(2).allSatisfy { $0 == "ignore-previous-rules" })
+        #expect(filters.contains(#"^http://localhost:8787[/?#]"#))
+        #expect(filters.contains(#"^ws://localhost:8787[/?#]"#))
+        #expect(!filters.contains { $0.contains("8788") })
+        let none = try #require(try JSONSerialization.jsonObject(with: Data(PluginHost.rules(for: plugin([])).utf8)) as? [Any])
+        #expect(none.count == 2)   // nothing declared: nothing gets out
     }
 }
 
@@ -141,53 +82,49 @@ struct AgentPluginTests {
         let folder = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().appendingPathComponent("examples/echo-agent/plugin")
         let plugin = try #require(AgentPlugin.load(folder))
-        #expect(plugin.api.address == "http://localhost:8787")
-        #expect(plugin.api.streams && plugin.api.speech != nil && plugin.api.health != nil)
-        #expect(plugin.look != nil)
+        #expect(plugin.allows(URL(string: "http://localhost:8787/text")!))
     }
 
-    @Test func readsTheAgentAndItsLook() throws {
-        let dir = try folder(##"""
-            {"name": "Echo",
-             "agent": {"address": "http://localhost:8787", "ask": "/text", "stream": "ndjson", "speech": "/speech", "health": "/health"},
-             "look": {"height": 150, "background": "#0b141c", "foreground": "#e6f1f5"}}
-            """##)
+    @Test func readsTheManifest() throws {
+        let dir = try folder(#"{"name": "Echo", "width": 480, "height": 200, "hosts": ["http://localhost:8787", "https://agent.example"]}"#)
         defer { try? FileManager.default.removeItem(at: dir) }
         let plugin = try #require(AgentPlugin.load(dir))
         #expect(plugin.name == "Echo")
-        #expect(plugin.api.address == "http://localhost:8787")
-        #expect(plugin.api.streams)
-        #expect(plugin.api.speech == "/speech")
-        #expect(plugin.api.conversationHeader == "X-Conversation-Id")
-        #expect(plugin.look?.height == 150)
-        #expect(plugin.look?.background != nil)
+        #expect(plugin.width == 480 && plugin.height == 200)
+        #expect(plugin.hosts == ["http://localhost:8787", "https://agent.example:443"])
     }
 
-    @Test func aLookIsOptionalButTheAgentIsNot() throws {
-        let plain = try folder(#"{"name": "Plain", "agent": {"address": "http://x.local", "conversation": null}}"#, page: nil)
-        defer { try? FileManager.default.removeItem(at: plain) }
-        let plugin = try #require(AgentPlugin.load(plain))
-        #expect(plugin.look == nil)
-        #expect(plugin.api.conversationHeader == nil)
-        #expect(!plugin.api.streams && plugin.api.speech == nil)
-        let lookOnly = try folder(#"{"name": "Just a look", "look": {}}"#)
-        defer { try? FileManager.default.removeItem(at: lookOnly) }
-        #expect(AgentPlugin.load(lookOnly) == nil)
+    @Test func onlyItsOwnHosts() throws {
+        let dir = try folder(#"{"name": "Echo", "hosts": ["http://localhost:8787"]}"#)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let plugin = try #require(AgentPlugin.load(dir))
+        #expect(plugin.allows(URL(string: "http://localhost:8787/text")!))
+        #expect(plugin.allows(URL(string: "http://LOCALHOST:8787/speech")!))
+        #expect(!plugin.allows(URL(string: "http://localhost:8788/text")!))
+        #expect(!plugin.allows(URL(string: "https://localhost:8787/text")!))
+        #expect(!plugin.allows(URL(string: "http://evil.example/text")!))
+        #expect(!plugin.allows(URL(string: "file:///etc/hosts")!))
     }
 
     @Test func thePageMustBeInsideTheFolder() throws {
-        let dir = try folder(#"{"name": "Sneaky", "agent": {"address": "http://x.local"}, "look": {"entry": "../../etc/hosts"}}"#)
-        defer { try? FileManager.default.removeItem(at: dir) }
-        #expect(try #require(AgentPlugin.load(dir)).look == nil)
+        let sneaky = try folder(#"{"name": "Sneaky", "entry": "../../etc/hosts"}"#)
+        defer { try? FileManager.default.removeItem(at: sneaky) }
+        #expect(AgentPlugin.load(sneaky) == nil)
+        let none = try folder(nil)
+        defer { try? FileManager.default.removeItem(at: none) }
+        #expect(AgentPlugin.load(none) == nil)
     }
 
-    @Test @MainActor func theEventSaysWhatIsHappening() throws {
-        let event = AgentPlugin.event(phase: .waiting, activity: "coding", speaking: false, level: 1.7)
-        let object = try #require(try JSONSerialization.jsonObject(with: Data(event.utf8)) as? [String: Any])
-        #expect(object["phase"] as? String == "waiting")
-        #expect(object["activity"] as? String == "coding")
-        #expect(object["level"] as? Double == 1)
-        let quiet = AgentPlugin.event(phase: .listening, activity: nil, speaking: false, level: 0.25)
-        #expect(quiet.contains("\"activity\":null"))
+    @Test func eachPluginKeepsItsOwnSettings() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("plugindata-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        PluginStorage.set("echo", key: "token", value: "abc", in: dir)
+        PluginStorage.set("other", key: "token", value: "xyz", in: dir)
+        #expect(PluginStorage.load("echo", in: dir)["token"] as? String == "abc")
+        PluginStorage.set("echo", key: "token", value: nil, in: dir)
+        #expect(PluginStorage.load("echo", in: dir)["token"] == nil)
+        #expect(PluginStorage.load("other", in: dir)["token"] as? String == "xyz")
+        let permissions = try FileManager.default.attributesOfItem(atPath: dir.appendingPathComponent("echo.json").path)[.posixPermissions] as? Int
+        #expect(permissions == 0o600)
     }
 }

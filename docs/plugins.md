@@ -1,9 +1,10 @@
 # Agent plugins
 
-The agent key (Settings › Agent) talks to an agent: you hold the key and speak, the words show in a
-small panel, Return sends them, and the agent's answer shows in the same panel. Cadabra knows no agent
-by itself: each one comes as a **plugin** that says how to talk to it and may bring its own **look**
-(a face, a voice wave) for the top of the panel.
+The agent key (Settings › Agent) hands what you say to an agent. Cadabra knows no agent by itself:
+each one comes as a **plugin**, and Cadabra's part is small. While the key is held it records, it
+recognizes the words, and it tells the plugin's page what it hears. Everything else is the plugin's:
+what its window shows, whether and how you confirm before anything is sent, talking to its agent,
+showing the answer, reading it aloud, its look, and its token or other settings.
 
 A working example to try or start from is in [`examples/echo-agent`](../examples/echo-agent): a tiny
 agent that says back what it heard, and its plugin.
@@ -13,7 +14,7 @@ agent that says back what it heard, and its plugin.
 ```
 ~/Library/Application Support/Cadabra/Plugins/<id>/
   plugin.json
-  index.html        (optional: the look, and whatever it loads)
+  index.html        (and whatever it loads from the folder)
 ```
 
 `plugin.json`:
@@ -21,77 +22,80 @@ agent that says back what it heard, and its plugin.
 ```json
 {
   "name": "Echo",
-  "agent": {
-    "address": "http://localhost:8787",
-    "ask": "/text",
-    "text_field": "text",
-    "reply_field": "reply",
-    "conversation": { "header": "X-Conversation-Id", "field": "conversation_id" },
-    "stream": "ndjson",
-    "speech": "/speech",
-    "health": "/health",
-    "token": "bearer"
-  },
-  "look": {
-    "entry": "index.html",
-    "height": 130,
-    "background": "#0b141c",
-    "foreground": "#e6f1f5"
-  }
+  "entry": "index.html",
+  "width": 440,
+  "height": 200,
+  "hosts": ["http://localhost:8787"]
 }
 ```
 
-### `agent` (required): how to talk to it
-
 | Key | Meaning | Default |
 |---|---|---|
-| `address` | Where it is; the user can set another in Settings. | (none) |
-| `ask` | `POST` here with `{"<text_field>": "<the words>"}`. | `/text` |
-| `text_field`, `reply_field` | The field the words go in, and the one the reply comes back in. | `text`, `reply` |
-| `conversation` | A follow-up within five minutes sends the last answer's `field` back in `header`, to continue the conversation. `null`: no conversations. | `X-Conversation-Id`, `conversation_id` |
-| `stream` | `"ndjson"`: the answer may come as newline-delimited JSON, so the agent can say what it is doing on the way (see below). | off |
-| `speech` | `POST {"text", "language"}` here for a WAV of the reply; offers **Read replies aloud**. | none |
-| `health` | `GET` here for **Test connection**. | none |
-| `token` | `"bearer"`: the token from Settings goes in `Authorization: Bearer …`; `"none"`: no token. | `bearer` |
-
-A failed request may answer `{"error": "…"}`; Cadabra shows that text.
-
-### `look` (optional): its face
-
-| Key | Meaning |
-|---|---|
-| `entry` | The page, inside the folder (default `index.html`). |
-| `height` | Points it takes at the top of the panel, 40–400 (default 120). The panel is 440 points wide. |
-| `background`, `foreground` | Optional `#rrggbb` colours for the whole panel, so it looks of a piece with the plugin. |
+| `name` | Shown in Settings. | the folder's name |
+| `entry` | The page, inside the folder. | `index.html` |
+| `width`, `height` | The window's size to start with, 120–900 points; the page can change it. | 440, 180 |
+| `hosts` | The only places the page may reach: scheme, host and port, e.g. `"https://agent.example.com"`. | none |
 
 Pick the plugin in Settings › Agent; **Open the plugins folder** takes you there.
 
+## The window
+
+When the agent key goes down, Cadabra opens a borderless window near where you are typing (or high in
+the middle of the screen) and shows the page in it. The page's background is transparent: paint your
+own card, corners and all. The window takes the keyboard while it is open, and the app you were in
+gets it back when it closes.
+
 ## What the page is told
 
-While the panel is on screen, Cadabra calls this 20 times a second:
+Cadabra defines `window.cadabra` before the page's scripts run. Listen with `cadabra.on(type, fn)`:
 
-```js
-window.cadabra.update({
-  phase: "listening",   // listening | confirm | waiting | reply | failed
-  activity: null,       // what the agent says it is doing while it answers, e.g. "thinking",
-                        // "researching", "calculating", "coding"; null otherwise
-  speaking: false,      // the reply is being read aloud
-  level: 0.42           // 0…1: the microphone while listening, the voice while speaking, else 0
-})
-```
+| Event | When |
+|---|---|
+| `{type: "listen"}` | The agent key went down; the window has just opened. |
+| `{type: "partial", text}` | What has been recognized so far, about once a second while you talk. |
+| `{type: "final", text}` | You let go; these are the words. |
+| `{type: "level", value}` | How loud the microphone is, 0…1, about ten times a second while you talk. |
+| `{type: "cancel"}` | The recording was cancelled or heard nothing. The window closes. |
 
-Define `window.cadabra = { update(event) { … } }` and animate as you like (`requestAnimationFrame`).
-The page's background is transparent; paint your own if you want one.
+`cadabra.on("*", fn)` gets every event.
 
-## What the look can't do
+Nothing is sent anywhere on `final`: it is up to the page what happens next. The example shows the
+words, lets you edit them, and sends them when you press Return.
+
+## What the page can ask for
+
+| Call | Does |
+|---|---|
+| `cadabra.close()` | Closes the window. |
+| `cadabra.resize(width, height)` | Resizes it (120–900 by 60–900 points), staying near the text. |
+| `cadabra.copy(text)` | Puts text on the clipboard. |
+| `cadabra.storage.get(key)` | A value the plugin saved before (a promise). |
+| `cadabra.storage.set(key, value)` | Saves a JSON value for this plugin; `null` removes it. |
+
+Storage is per plugin, in `~/Library/Application Support/Cadabra/PluginData/<id>.json`, readable only
+by you. It is where a token goes: ask for it in the page and keep it there.
+
+## Talking to the agent
+
+The page calls its agent itself, with `fetch` (streaming with `response.body.getReader()` works), or a
+WebSocket. Agents don't need CORS headers. Audio can play without a click.
+
+## What the page can't do
 
 - It is loaded from its folder and may read only files in that folder.
-- Every network request (`http`, `https`, `ws`, `wss`) is blocked.
-- It gets the events above and nothing else: not the words, not the reply, not the agent's address.
+- Every request to anywhere other than its `hosts` is blocked (`http`, `https`, `ws`, `wss`), including
+  scripts, fonts and images from the web: bring them along in the folder.
+- It knows nothing but what it is told above: not the app you were in, not the text there, not your
+  dictation history or vocabulary.
 
-## Where `activity` comes from
+## A suggested agent API
 
-With `"stream": "ndjson"` Cadabra asks for a streamed answer (`Accept: application/x-ndjson`). An agent
-that streams sends one JSON object per line: `{"type": "activity", "state": "thinking"}` while it
-works, then `{"type": "result", "reply": "…"}` (or `{"type": "error", "error": "…"}`). One that answers
-with plain JSON works too; `activity` then stays null.
+The example agent and plugin use this; nothing in Cadabra depends on it.
+
+- `POST /text {"text": "…"}` answers `{"reply": "…", "conversation_id": "…"}`. Sending the id back in
+  `X-Conversation-Id` continues the conversation.
+- With `Accept: application/x-ndjson` the answer may come as one JSON object per line, so the agent can
+  say what it is doing: `{"type": "activity", "state": "thinking"}` while it works, then
+  `{"type": "result", "reply": "…"}` or `{"type": "error", "error": "…"}`.
+- `POST /speech {"text", "language"}` answers a WAV of the text.
+- A token, if any, goes in `Authorization: Bearer …`.

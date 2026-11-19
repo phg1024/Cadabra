@@ -483,16 +483,10 @@ private struct CorrectEntrySheet: View {
 }
 
 /// What Cadabra has learned from the user's fixes.
-/// Which agent the agent key talks to: an installed `AgentPlugin`, its address and token.
+/// Which agent plugin the agent key hands its words to.
 struct AgentSettings: View {
     @EnvironmentObject var prefs: Preferences
     @State private var plugins = AgentPlugin.installed()
-    @State private var token = ""
-    @State private var hasToken = false
-    @State private var status: String?
-    @State private var checking = false
-
-    private var plugin: AgentPlugin? { AgentPlugin.named(prefs.agentPlugin) ?? (prefs.agentPlugin.isEmpty ? plugins.first : nil) }
 
     var body: some View {
         Form {
@@ -508,57 +502,19 @@ struct AgentSettings: View {
                     }
                     Button(t("重新查找", "Look again")) { plugins = AgentPlugin.installed() }
                 }
-                if let plugin {
-                    TextField(t("地址", "Address"), text: $prefs.agentURL, prompt: Text(plugin.api.address.isEmpty ? "http://…" : plugin.api.address))
-                    if plugin.api.token == "bearer" {
-                        LabeledContent(t("口令", "Token")) {
-                            HStack {
-                                SecureField("", text: $token, prompt: Text(hasToken ? t("已保存（填新的会替换）", "Saved (enter a new one to replace it)") : t("没有就留空", "Leave empty if none")))
-                                    .labelsHidden()
-                                Button(t("保存", "Save")) {
-                                    Keychain.setToken(token, for: plugin.id)
-                                    hasToken = !token.isEmpty
-                                    token = ""
-                                }
-                                .disabled(token.isEmpty && !hasToken)
-                            }
-                        }
-                    }
-                    if plugin.api.health != nil {
-                        HStack {
-                            Button(t("测试连接", "Test connection")) {
-                                checking = true
-                                Task {
-                                    status = await Agent.check(plugin.address, api: plugin.api, token: Keychain.token(for: plugin.id))
-                                    checking = false
-                                }
-                            }
-                            if checking { ProgressView().controlSize(.small) }
-                            if let status { Text(status).font(.system(size: 12)).foregroundStyle(.secondary) }
-                        }
-                    }
-                    if plugin.api.speech != nil {
-                        Toggle(t("朗读回复", "Read replies aloud"), isOn: $prefs.agentSpeaks)
-                    }
-                }
                 Picker(t("Agent 键", "Agent key"), selection: $prefs.agentHotkey) {
                     Text(t("关闭", "Off")).tag(Hotkey?.none)
                     ForEach(Hotkey.allCases.filter { $0 != prefs.hotkey && $0 != prefs.editHotkey }) { Text($0.title).tag(Hotkey?.some($0)) }
                 }
             } footer: {
-                Text(t("Agent 以插件的形式接进来：插件说明怎么跟它对话（地址、接口），也可以带上它自己的外观。按住 Agent 键说话，松开后识别出的文字先显示在一个小窗口里：可以改，按回车才发出去，按 esc 取消。回复显示在同一个窗口里。对方能做什么取决于那边的 agent。口令存在钥匙串里。插件的写法见 docs/plugins.md。",
-                       "Agents come as plugins: a plugin says how to talk to the agent (address, API) and may bring its own look. Hold the agent key and talk; when you let go, the words appear in a small window where you can edit them. Nothing is sent until you press Return; esc cancels. The reply shows in the same window. What happens then is up to the agent. Tokens are kept in the keychain. docs/plugins.md describes how to write a plugin."))
+                Text(t("按住 Agent 键说话：Cadabra 打开插件的窗口，把识别出的文字实时交给插件。之后的事都由插件负责：怎么确认、怎么连它的 agent、怎么显示回复、要不要朗读、长什么样，以及它自己的设置（比如口令）。插件只能连它自己声明的地址。插件的写法见 docs/plugins.md，examples/echo-agent 是一个示例。",
+                       "Hold the agent key and talk: Cadabra opens the plugin's window and hands it the words as they are recognized. Everything after that is the plugin's: confirming, talking to its agent, showing the answer, reading it aloud, how it looks, and its own settings (a token, say). A plugin can only reach the addresses it declares. docs/plugins.md describes plugins; examples/echo-agent is one."))
                     .font(.system(size: 11)).foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .formStyle(.grouped)
-        .frame(height: 440)
-        .onAppear { hasToken = plugin.map { Keychain.hasToken(for: $0.id) } ?? false }
-        .onChange(of: prefs.agentPlugin) {
-            hasToken = plugin.map { Keychain.hasToken(for: $0.id) } ?? false
-            status = nil
-        }
+        .frame(height: 320)
     }
 }
 

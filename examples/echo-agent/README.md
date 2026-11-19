@@ -14,6 +14,7 @@ cp -R examples/echo-agent/plugin ~/Library/Application\ Support/Cadabra/Plugins/
 Then Settings › Agent › Agent plugin › Echo (example), choose an agent key, and hold it while you talk.
 
 - `agent.py`: the agent (Python standard library only).
-- `plugin/plugin.json`: how to talk to it.
-- `plugin/index.html`: its look, an orb that breathes with your voice and changes colour while it
-  listens, thinks and speaks.
+- `plugin/plugin.json`: its name, window size, and the one host it may reach.
+- `plugin/index.html`: everything else, as a plugin does it: the window's contents (the words as you
+  talk, then editable; Return sends, esc closes), the request to the agent with its streamed
+  activity, the answer, reading it aloud, an orb that breathes with the voice, and the token (⚙︎).
