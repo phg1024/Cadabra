@@ -20,14 +20,19 @@ enum ASRError: LocalizedError {
     }
 }
 
-/// SenseVoice-Small through sherpa-onnx's C API. Loading and decoding run on one serial queue,
-/// so a transcription requested while the model (re)loads simply waits for it.
+/// SenseVoice-Small, run through onnxruntime and decoded here (with a bias toward the user's words, see
+/// `HotwordDecoder`); sherpa-onnx's recognizer is the fallback, and what CADABRA_ASR=sherpa uses.
+/// Loading and decoding run on one serial queue, so a transcription requested while the model (re)loads
+/// simply waits for it.
 final class ASREngine: @unchecked Sendable {
     static let sampleRate = 16000
 
     private let queue = DispatchQueue(label: "Cadabra.asr", qos: .userInitiated)
+    private var net: SenseVoiceNet?
     private var recognizer: OpaquePointer?
+    private var language = Language.auto
     private var loadError: Error?
+    private var decoder: (words: [String], decoder: HotwordDecoder)?
 
     /// The bundled model, or CADABRA_MODEL_DIR, or models/ in the current directory (for `swift run`).
     static func defaultModelDirectory() -> URL? {
@@ -47,25 +52,38 @@ final class ASREngine: @unchecked Sendable {
         queue.async {
             if let old = self.recognizer { SherpaOnnxDestroyOfflineRecognizer(old) }
             self.recognizer = nil
-            do {
-                self.recognizer = try Self.makeRecognizer(modelDirectory: modelDirectory, language: language)
-                self.loadError = nil
-            } catch {
-                self.loadError = error
+            self.net = nil
+            self.language = language
+            self.loadError = nil
+            if ProcessInfo.processInfo.environment["CADABRA_ASR"] != "sherpa", let dir = modelDirectory {
+                do {
+                    self.net = try SenseVoiceNet(modelDirectory: dir)
+                } catch {
+                    NSLog("Cadabra: onnxruntime path unavailable, using sherpa-onnx: \(error.localizedDescription)")
+                }
+            }
+            if self.net == nil {
+                do {
+                    self.recognizer = try Self.makeRecognizer(modelDirectory: modelDirectory, language: language)
+                } catch {
+                    self.loadError = error
+                }
             }
             completion(self.loadError)
         }
     }
 
-    func transcribe(_ samples: [Float]) async throws -> Transcript {
+    /// `hotwords`: the user's own words, favoured where the model was unsure (see `HotwordDecoder`).
+    func transcribe(_ samples: [Float], hotwords: [String] = []) async throws -> Transcript {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
-                continuation.resume(with: Result { try self.decode(samples) })
+                continuation.resume(with: Result { try self.decode(samples, hotwords: hotwords) })
             }
         }
     }
 
-    private func decode(_ samples: [Float]) throws -> Transcript {
+    private func decode(_ samples: [Float], hotwords: [String]) throws -> Transcript {
+        if let net { return try decode(samples, with: net, hotwords: hotwords) }
         guard let recognizer else { throw loadError ?? ASRError.loadFailed }
         let start = Date()
         let stream = SherpaOnnxCreateOfflineStream(recognizer)
@@ -79,12 +97,26 @@ final class ASREngine: @unchecked Sendable {
             if let raw = result.pointee.text { text = String(cString: raw) }
             SherpaOnnxDestroyOfflineRecognizerResult(result)
         }
-        // SenseVoice can leave tags such as <|zh|><|NEUTRAL|><|Speech|> in the text.
-        text = text.replacingOccurrences(of: "<\\|[^|]*\\|>", with: "", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return Transcript(text: text,
+        return Transcript(text: Self.clean(text),
                           duration: Double(samples.count) / Double(Self.sampleRate),
                           latency: Date().timeIntervalSince(start))
+    }
+
+    private func decode(_ samples: [Float], with net: SenseVoiceNet, hotwords: [String]) throws -> Transcript {
+        let start = Date()
+        let scores = try net.scores(samples, language: language.rawValue)
+        let words = hotwords.filter(HotwordDecoder.usable)
+        if decoder?.words != words { decoder = (words, HotwordDecoder(words: words, pieces: net.pieces)) }
+        let tokens = decoder?.decoder.decode(scores) ?? SenseVoiceNet.greedy(scores)
+        return Transcript(text: Self.clean(net.text(tokens)),
+                          duration: Double(samples.count) / Double(Self.sampleRate),
+                          latency: Date().timeIntervalSince(start))
+    }
+
+    /// SenseVoice can leave tags such as <|zh|><|NEUTRAL|><|Speech|> in the text.
+    private static func clean(_ text: String) -> String {
+        text.replacingOccurrences(of: "<\\|[^|]*\\|>", with: "", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func makeRecognizer(modelDirectory: URL?, language: Language) throws -> OpaquePointer {

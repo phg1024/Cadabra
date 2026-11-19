@@ -4,3 +4,4 @@ build/
 Vendor/
 .signing/
 models/
+research/.venv/

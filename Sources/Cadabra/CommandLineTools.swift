@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 
 /// Headless modes, used by build.sh and for testing without the menu bar:
-///   Cadabra --transcribe a.wav [b.wav ...] [--language zh]
+///   Cadabra --transcribe a.wav [b.wav ...] [--language zh] [--hotwords "push, commit"] [--correct]
+///                                      (CADABRA_ASR=sherpa: sherpa-onnx's decoding, to compare)
 ///   Cadabra --snapshot <dir> [en|zh]  renders the main views to PNG
 ///   Cadabra --make-icon <dir.iconset>
 ///   Cadabra --microphones             lists the inputs and the one a recording would use
@@ -60,6 +61,11 @@ enum CommandLineTools {
             // CADABRA_LLM_MODEL=/path/to/model.gguf, or the downloaded recommended model.
             do { try Corrector.shared.loadForCommandLine(.recommended) } catch { print("correction model: \(error.localizedDescription)"); exit(1) }
         }
+        var hotwords: [String] = []
+        if let i = files.firstIndex(of: "--hotwords"), i + 1 < files.count {
+            hotwords = Preferences.terms(in: files[i + 1])
+            files.removeSubrange(i...(i + 1))
+        }
         if let i = files.firstIndex(of: "--language"), i + 1 < files.count {
             language = Language(rawValue: files[i + 1]) ?? .auto
             files.removeSubrange(i...(i + 1))
@@ -77,7 +83,7 @@ enum CommandLineTools {
             Task.detached {
                 do {
                     let samples = try AudioFile.load16kMono(URL(fileURLWithPath: file))
-                    let t = try await engine.transcribe(samples)
+                    let t = try await engine.transcribe(samples, hotwords: hotwords)
                     let text = LearnedFixes.shared.apply(RepeatedEnding.fix(t.text))
                     print(String(format: "%.1fs audio, %.0f ms | %@", t.duration, t.latency * 1000, text))
                     if correct {

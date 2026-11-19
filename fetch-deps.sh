@@ -27,6 +27,17 @@ if [ ! -f Vendor/sherpa-onnx/lib/libsherpa-onnx-c-api.dylib ]; then
   [ -f Vendor/sherpa-onnx/lib/libsherpa-onnx-c-api.dylib ] || { echo "no libsherpa-onnx-c-api.dylib in $name"; exit 1; }
 fi
 
+# The C header of the onnxruntime above (sherpa-onnx's own builds; the version must match its dylib).
+ORT_VERSION=1.28.2
+if [ ! -f Vendor/onnxruntime/include/onnxruntime_c_api.h ]; then
+  name=onnxruntime-osx-arm64-$ORT_VERSION
+  echo "downloading $name headers"
+  curl -fL --progress-bar "https://github.com/csukuangfj/onnxruntime-libs/releases/download/v$ORT_VERSION/$name.zip" -o "$TMP/ort.zip"
+  unzip -q "$TMP/ort.zip" -d "$TMP"
+  mkdir -p Vendor/onnxruntime
+  cp -R "$TMP/$name/include" Vendor/onnxruntime/
+fi
+
 if [ ! -f "models/$MODEL_NAME/model.int8.onnx" ]; then
   echo "downloading $MODEL_NAME"
   mkdir -p models

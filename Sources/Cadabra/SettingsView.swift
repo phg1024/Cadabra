@@ -494,10 +494,14 @@ struct VocabularySettings: View {
                         .onSubmit(add)
                     Button(t("添加", "Add"), action: add).disabled(Preferences.terms(in: newTerm).isEmpty)
                 }
+                Toggle(isOn: $prefs.hotwords) {
+                    Text(t("识别时优先考虑这些词", "Favour these words while recognizing"))
+                    Text(t("包括学到的英文词。模型拿不准时（「不许」还是 push？），会偏向你的词；听得很清楚的不会被改。", "Including the English words learned below. Where the model is unsure (不许 or push?), it leans toward your words; what it heard clearly stays."))
+                }
             } header: {
                 Text(t("常用词（\(prefs.vocabularyTerms.count)）", "Your vocabulary (\(prefs.vocabularyTerms.count))"))
             } footer: {
-                note(t("你常说的名字和术语。纠错模型会参考它们，也不会把它们改成别的词。", "Names and terms you say often. The correction model uses them and leaves them as they are."))
+                note(t("你常说的名字和术语。识别时会优先考虑；纠错模型也会参考它们，不会把它们改成别的词。", "Names and terms you say often. Recognition favours them, and the correction model uses them and leaves them as they are."))
             }
 
             Section {

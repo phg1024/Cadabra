@@ -14,9 +14,11 @@ let package = Package(
     targets: [
         .systemLibrary(name: "CSherpaOnnx", path: "Sources/CSherpaOnnx"),
         .systemLibrary(name: "CLlama", path: "Sources/CLlama"),
+        // The onnxruntime that comes with sherpa-onnx, called directly to get SenseVoice's per-frame scores.
+        .systemLibrary(name: "COnnxRuntime", path: "Sources/COnnxRuntime"),
         .executableTarget(
             name: "Cadabra",
-            dependencies: ["CSherpaOnnx", "CLlama"],
+            dependencies: ["CSherpaOnnx", "CLlama", "COnnxRuntime"],
             path: "Sources/Cadabra",
             linkerSettings: [
                 .unsafeFlags([

@@ -118,6 +118,17 @@ final class LearnedFixes: ObservableObject {
         return relevant.prefix(limit).map { "\($0.heard) → \($0.meant)" }.joined(separator: "；")
     }
 
+    /// English words the user corrected to (push, commit), for the speech decoder to favour. Learned
+    /// Chinese words stay out: they are mostly everyday ones (这边), and favouring them changes others.
+    var hotwords: [String] {
+        var seen = Set<String>()
+        return fixes.flatMap { fix in
+            let meant = fix.core.meant
+            return meant.ranges(of: #/[A-Za-z][A-Za-z0-9-]+/#).map { String(meant[$0]) }
+        }
+            .filter { seen.insert($0.lowercased()).inserted }
+    }
+
     /// Words the user has corrected to, for the corrector's vocabulary.
     var terms: [String] {
         var seen = Set<String>()

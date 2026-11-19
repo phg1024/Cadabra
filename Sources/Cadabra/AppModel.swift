@@ -317,7 +317,8 @@ final class AppModel: ObservableObject {
         jobs[job] = Task {
             defer { pending -= 1; jobs[job] = nil }
             do {
-                let transcript = try await engine.transcribe(samples)
+                let hotwords = prefs.hotwords ? prefs.vocabularyTerms + LearnedFixes.shared.hotwords : []
+                let transcript = try await engine.transcribe(samples, hotwords: hotwords)
                 guard !Task.isCancelled else { return }
                 let learned = LearnedFixes.shared
                 let recognized = learned.apply(RepeatedEnding.fix(transcript.text))
