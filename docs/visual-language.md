@@ -48,13 +48,12 @@ lighter: accent `#9B8CFF`, gold `#F5C451`.
 
 ## The mark
 
-Six slim white sound bars of uneven height, the wave of the first Cadabra mark, centered; a straight
-**Wand black** wand from the lower right, which may cross the bars a little, with a **Magic gold** star on its tip; a few gold stars and
-dots around. On the **mark gradient** tile.
+Six slim white sound bars of uneven height, the wave of the first Cadabra mark, centered and filling most
+of the tile; a big **Magic gold** star at the top right, a small one at the bottom left, and a small gold
+dot in each of the other two corners. On the **mark gradient** tile. No wand: the stars are the magic.
 
 The same mark everywhere, at every size: the app icon, the menu bar, the mark inside the app, the
-favicon and the site's nav. There is no simplified version (at menu-bar size the wand is kept at least
-1.3 points wide so it still reads). The app icon, the menu bar and the Cadabra theme use the mark
+favicon and the site's nav. There is no simplified version. The app icon, the menu bar and the Cadabra theme use the mark
 gradient; inside the app, each of the other themes shows the same mark on its own accent colors.
 
 The source of truth is code: `MagicMark` in `Sources/Cadabra/Components.swift` (`AppIconArt` renders
@@ -68,6 +67,8 @@ The bar at the bottom of the screen while you talk. In the Cadabra theme it foll
   bar, white text, a gold star in place of the red dot.
 - **Light mode**: the stage (the pale mark gradient) as the bar, a Clay purple wave, Ink text, the gold
   star.
+- **Notices** ("Didn't hear anything", "Cancelled") are in orange so they stand out: `#E8590C` on the
+  light bar, `#FFA94D` on the dark one.
 
 The other themes keep their own bar. `Theme.forBar(dark:)` in `Sources/Cadabra/Theme.swift`.
 
