@@ -1,9 +1,66 @@
 import SwiftUI
 
 enum Brand {
+    /// Sky, indigo, violet: the app icon's tile (docs/visual-language.md).
     static let gradient = LinearGradient(
-        colors: [Color(red: 0.33, green: 0.42, blue: 0.98), Color(red: 0.62, green: 0.32, blue: 0.95)],
+        colors: [Color(hex: 0x47A3FB), Color(hex: 0x546BFA), Color(hex: 0x9E52F2)],
         startPoint: .topLeading, endPoint: .bottomTrailing)
+}
+
+/// The mark inside the app icon, drawn on a unit tile: five sound bars, a magic wand with a star on its tip,
+/// and a few stars (see docs/visual-language.md). `small` keeps the bars and one star, for 32 points and less.
+struct MagicMark: View {
+    var small = false
+    var bars: Color = .white
+
+    static let gold = Color(hex: 0xF7C548)
+    static let goldEdge = Color(hex: 0xE09A1F)
+    static let wand = Color(hex: 0x2A2238)
+
+    var body: some View {
+        Canvas { context, size in
+            let s = size.width
+            func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
+            // The bars, a little left of center to leave room for the wand.
+            let heights: [CGFloat] = small ? [0.22, 0.40, 0.62, 0.40, 0.22] : [0.18, 0.33, 0.55, 0.33, 0.18]
+            let width: CGFloat = small ? 0.10 : 0.078
+            let xs: [CGFloat] = small ? [0.20, 0.335, 0.47, 0.605, 0.74] : [0.21, 0.338, 0.466, 0.594, 0.722]
+            let mid: CGFloat = small ? 0.53 : 0.505
+            for (x, h) in zip(xs, heights) {
+                let rect = CGRect(x: (x - width / 2) * s, y: (mid - h / 2) * s, width: width * s, height: h * s)
+                context.fill(Path(roundedRect: rect, cornerRadius: width * s / 2), with: .color(bars))
+            }
+            if small {
+                Self.star(&context, center: p(0.80, 0.22), radius: 0.13 * s)
+            } else {
+                var wand = Path()
+                wand.move(to: p(0.646, 0.807))
+                wand.addLine(to: p(0.885, 0.50))
+                context.stroke(wand, with: .color(Self.wand), style: StrokeStyle(lineWidth: 0.042 * s, lineCap: .round))
+                Self.star(&context, center: p(0.895, 0.465), radius: 0.068 * s)
+                Self.star(&context, center: p(0.80, 0.19), radius: 0.046 * s)
+                Self.star(&context, center: p(0.255, 0.78), radius: 0.036 * s)
+                for (x, y, r) in [(0.20, 0.25, 0.016), (0.75, 0.33, 0.013)] as [(CGFloat, CGFloat, CGFloat)] {
+                    context.fill(Path(ellipseIn: CGRect(x: (x - r) * s, y: (y - r) * s, width: 2 * r * s, height: 2 * r * s)), with: .color(Self.gold))
+                }
+            }
+        }
+    }
+
+    /// A plump five-pointed star: rounded corners from a round-joined stroke in the same gold.
+    static func star(_ context: inout GraphicsContext, center: CGPoint, radius: CGFloat) {
+        var path = Path()
+        for i in 0..<10 {
+            let r = i.isMultiple(of: 2) ? radius : radius * 0.5
+            let angle = -CGFloat.pi / 2 + CGFloat(i) * .pi / 5
+            let point = CGPoint(x: center.x + cos(angle) * r, y: center.y + sin(angle) * r)
+            if i == 0 { path.move(to: point) } else { path.addLine(to: point) }
+        }
+        path.closeSubpath()
+        context.stroke(path, with: .color(goldEdge), style: StrokeStyle(lineWidth: radius * 0.42, lineJoin: .round))
+        context.stroke(path, with: .color(gold), style: StrokeStyle(lineWidth: radius * 0.28, lineJoin: .round))
+        context.fill(path, with: .color(gold))
+    }
 }
 
 struct AppGlyph: View {
@@ -13,10 +70,7 @@ struct AppGlyph: View {
     var body: some View {
         RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
             .fill(theme.gradient)
-            .overlay(
-                Image(systemName: "waveform")
-                    .font(.system(size: size * 0.5, weight: .semibold))
-                    .foregroundStyle(theme.onAccent))
+            .overlay(MagicMark(small: size <= 32, bars: theme.onAccent))
             .frame(width: size, height: size)
     }
 }
@@ -29,12 +83,11 @@ struct AppIconArt: View {
                 .fill(Brand.gradient)
                 .overlay(
                     RoundedRectangle(cornerRadius: 185, style: .continuous)
-                        .fill(LinearGradient(colors: [.white.opacity(0.22), .clear], startPoint: .top, endPoint: .center)))
+                        .fill(LinearGradient(colors: [.white.opacity(0.12), .clear], startPoint: .top, endPoint: .center)))
                 .frame(width: 824, height: 824)
                 .shadow(color: .black.opacity(0.28), radius: 18, y: 10)
-            Image(systemName: "waveform")
-                .font(.system(size: 430, weight: .semibold))
-                .foregroundStyle(.white)
+            MagicMark()
+                .frame(width: 824, height: 824)
                 .shadow(color: .black.opacity(0.15), radius: 6, y: 4)
         }
         .frame(width: 1024, height: 1024)

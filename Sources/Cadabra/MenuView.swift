@@ -191,8 +191,27 @@ struct MenuBarLabel: View {
     @ObservedObject var model: AppModel
     @Environment(\.openWindow) private var openWindow
 
+    /// The small mark in color, not a template, so the menu bar shows it as it is.
+    @MainActor static let icon: NSImage = {
+        let renderer = ImageRenderer(content:
+            RoundedRectangle(cornerRadius: 18 * 0.28, style: .continuous)
+                .fill(Brand.gradient)
+                .overlay(MagicMark(small: true))
+                .frame(width: 18, height: 18))
+        renderer.scale = 2
+        let image = renderer.nsImage ?? NSImage(systemSymbolName: "waveform", accessibilityDescription: nil)!
+        image.isTemplate = false
+        return image
+    }()
+
     var body: some View {
-        Image(systemName: model.isRecording ? "mic.fill" : (model.pending > 0 ? "ellipsis.circle" : "waveform"))
+        Group {
+            if model.isRecording || model.pending > 0 {
+                Image(systemName: model.isRecording ? "mic.fill" : "ellipsis.circle")
+            } else {
+                Image(nsImage: Self.icon)
+            }
+        }
             .onAppear {
                 // First launch, or permissions lost (e.g. after a rebuild): show the setup window.
                 if !model.prefs.onboarded || model.needsPermissions {
