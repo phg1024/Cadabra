@@ -69,6 +69,15 @@ struct CorrectionModelTests {
         #expect(try await correct(text, fixes: Self.fixes) == expected)
     }
 
+    /// A name written in the text around the cursor is written the same way; without it, nothing is guessed.
+    @Test func usesTheTextAroundTheCursor() async throws {
+        let corrector = try #require(Self.corrector, "no correction model downloaded")
+        let text = "好的，我已经跟乔纳森说过了。"
+        let context = FocusContext(before: "Jonathan: 这个 PR 你看过了吗？\n我：", after: "")
+        #expect(try await corrector.correct(text, vocabulary: "", context: context) == "好的，我已经跟Jonathan说过了。")
+        #expect(try await corrector.correct(text, vocabulary: "") == text)
+    }
+
     /// The model sometimes puts a learned term in place of an ordinary word that sounds nothing like it
     /// (对应 → 有push, 远端 → dwin); the sound-alike check in `vet` undoes that.
     @Test func leavesOrdinaryWordsThatSoundNothingLikeATerm() async throws {

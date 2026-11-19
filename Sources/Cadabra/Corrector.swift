@@ -195,10 +195,14 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
     // MARK: Correction
 
     /// `learned`: the user's earlier fixes, "heard → meant; ...". `keep`: words the answer may not take out.
-    func correct(_ text: String, vocabulary: String, learned: String = "", keep: [String] = []) async throws -> String {
+    /// `context`: the text around the cursor where this goes, for names and how they are written.
+    func correct(_ text: String, vocabulary: String, learned: String = "", keep: [String] = [],
+                 context: FocusContext? = nil) async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
-                continuation.resume(with: Result { try self.run(text, vocabulary: vocabulary, learned: learned, keep: keep) })
+                continuation.resume(with: Result {
+                    try self.run(text, vocabulary: vocabulary, learned: learned, keep: keep, context: context)
+                })
             }
         }
     }
@@ -211,12 +215,15 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func run(_ text: String, vocabulary: String, learned: String, keep: [String]) throws -> String {
+    private func run(_ text: String, vocabulary: String, learned: String, keep: [String], context around: FocusContext?) throws -> String {
         guard let model, let context, let sampler else { throw Failure.notReady }
         let vocab = llama_model_get_vocab(model)
         var system = Self.instructions
         if !vocabulary.isEmpty { system += "\n说话人常用的词：\(vocabulary)" }
         if !learned.isEmpty { system += "\n说话人以前亲手改过的地方（左边是识别错的，右边是本意），同样的错再出现就照着改：\(learned)" }
+        if let around, !around.isEmpty {
+            system += "\n这段话要插入到下面这段文字的 ⟨光标⟩ 处。它不是要纠错的内容，不要改它，也不要输出它；但如果识别结果里有词明显是这段文字里出现过的人名或术语被听成了别的字，就改成这段文字里的写法，中文听成了英文名或英文名听成了中文都照改：\n\(around.prompt)"
+        }
         var tokens = tokenize(prompt(system: system, user: "<text>\(text)</text>"), vocab: vocab)
         let inputTokens = tokenize(text, vocab: vocab).count
         guard tokens.count + inputTokens * 2 + 64 < llama_n_ctx(context) else { throw Failure.tooLong }

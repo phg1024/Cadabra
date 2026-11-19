@@ -498,6 +498,10 @@ struct VocabularySettings: View {
                     Text(t("识别时优先考虑这些词", "Favour these words while recognizing"))
                     Text(t("包括学到的英文词。模型拿不准时（「不许」还是 push？），会偏向你的词；听得很清楚的不会被改。", "Including the English words learned below. Where the model is unsure (不许 or push?), it leans toward your words; what it heard clearly stays."))
                 }
+                Toggle(isOn: $prefs.useContext) {
+                    Text(t("参考光标附近的文字", "Use the text around the cursor"))
+                    Text(t("说完时读一下输入框里光标前后的文字：里面的人名、变量名也会被优先考虑，纠错模型也能看到它们的写法。只在本机用一次，不保存；密码框不读。", "When you stop talking, the text before and after the cursor is read: names and identifiers in it are favoured too, and the correction model sees how they're written. Used once on this Mac, never stored; password fields are skipped."))
+                }
             } header: {
                 Text(t("常用词（\(prefs.vocabularyTerms.count)）", "Your vocabulary (\(prefs.vocabularyTerms.count))"))
             } footer: {

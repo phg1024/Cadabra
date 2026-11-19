@@ -302,6 +302,7 @@ final class AppModel: ObservableObject {
     func stop() {
         guard isRecording else { return }
         let target = TextInjector.Target.current()
+        let context = prefs.useContext && (prefs.hotwords || prefs.correction) ? FocusContext.read() : nil
         let samples = finishRecording()
         let duration = Double(samples.count) / Double(ASREngine.sampleRate)
         let rms = samples.isEmpty ? 0 : sqrt(samples.reduce(0) { $0 + $1 * $1 } / Float(samples.count))
@@ -317,7 +318,7 @@ final class AppModel: ObservableObject {
         jobs[job] = Task {
             defer { pending -= 1; jobs[job] = nil }
             do {
-                let hotwords = prefs.hotwords ? prefs.vocabularyTerms + LearnedFixes.shared.hotwords : []
+                let hotwords = prefs.hotwords ? prefs.vocabularyTerms + LearnedFixes.shared.hotwords + (context?.words() ?? []) : []
                 let transcript = try await engine.transcribe(samples, hotwords: hotwords)
                 guard !Task.isCancelled else { return }
                 let learned = LearnedFixes.shared
@@ -329,8 +330,8 @@ final class AppModel: ObservableObject {
                         let began = Date()
                         Corrector.shared.scheduleRest()
                         corrected = try? await Corrector.shared.correct(recognized, vocabulary: vocabulary, learned: learned.hints(for: recognized),
-                                                                        keep: learned.keep(vocabulary: prefs.vocabulary))
-                        log.notice("recognized in \(Int(transcript.latency * 1000)) ms, corrected in \(Int(Date().timeIntervalSince(began) * 1000)) ms, changed: \(corrected.map { $0 != recognized } ?? false)")
+                                                                        keep: learned.keep(vocabulary: prefs.vocabulary), context: context)
+                        log.notice("recognized in \(Int(transcript.latency * 1000)) ms, corrected in \(Int(Date().timeIntervalSince(began) * 1000)) ms, changed: \(corrected.map { $0 != recognized } ?? false), context: \(context.map { $0.before.count + $0.after.count } ?? 0) chars")
                     } else {
                         // Never wait for a model that is still loading (it can take many seconds).
                         log.notice("recognized in \(Int(transcript.latency * 1000)) ms, correction skipped: model not loaded")

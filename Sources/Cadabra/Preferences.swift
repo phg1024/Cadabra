@@ -172,6 +172,8 @@ final class Preferences: ObservableObject {
     @Published var correction: Bool { didSet { defaults.set(correction, forKey: "correction") } }
     /// Favour the vocabulary and learned English words while recognizing (`HotwordDecoder`).
     @Published var hotwords: Bool { didSet { defaults.set(hotwords, forKey: "hotwords") } }
+    /// Read the text around the cursor (`FocusContext`) for the decoder and the correction model.
+    @Published var useContext: Bool { didSet { defaults.set(useContext, forKey: "useContext") } }
     @Published var correctionModel: CorrectionModel { didSet { defaults.set(correctionModel.rawValue, forKey: "correctionModel") } }
     @Published var autoPaste: Bool { didSet { defaults.set(autoPaste, forKey: "autoPaste") } }
     @Published var restoreClipboard: Bool { didSet { defaults.set(restoreClipboard, forKey: "restoreClipboard") } }
@@ -228,6 +230,7 @@ final class Preferences: ObservableObject {
         vocabulary = defaults.string(forKey: "vocabulary") ?? ""
         correction = defaults.bool(forKey: "correction")
         hotwords = defaults.object(forKey: "hotwords") as? Bool ?? true
+        useContext = defaults.object(forKey: "useContext") as? Bool ?? true
         correctionModel = CorrectionModel(rawValue: defaults.string(forKey: "correctionModel") ?? "") ?? .recommended
         autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
         restoreClipboard = defaults.object(forKey: "restoreClipboard") as? Bool ?? true
