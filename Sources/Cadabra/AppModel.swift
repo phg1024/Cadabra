@@ -201,6 +201,10 @@ final class AppModel: ObservableObject {
             if pressed == mode, prefs.trigger != .auto || latched { stop() }
             return
         }
+        if pressed == .agent, Agent.endpoint(prefs.agentURL, "text") == nil {
+            hud.flash(.message(t("先在 设置 › Agent 里填好地址", "Set the agent's address in Settings › Agent first"), symbol: "sparkles"))
+            return
+        }
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.pendingStart = nil
@@ -323,7 +327,8 @@ final class AppModel: ObservableObject {
         // Into the field only when nothing earlier is still on its way there.
         typingLive = prefs.livePreview == .field && prefs.autoPaste && mode == .dictate && pending == 0
         if typingLive { typer.begin(in: TextInjector.Target.current()) }
-        if prefs.livePreview != .off {
+        if mode == .agent { Agent.shared.listen(near: hud.anchor) }
+        if prefs.livePreview != .off || mode == .agent {
             previewTimer = Timer.scheduledTimer(withTimeInterval: Self.previewEvery, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.preview() }
             }
@@ -333,7 +338,7 @@ final class AppModel: ObservableObject {
         let work = DispatchWorkItem { [weak self] in
             guard let self, self.isRecording else { return }
             if self.prefs.sounds { Sounds.start() }
-            self.hud.show(.recording)
+            if self.mode != .agent { self.hud.show(.recording) }   // the agent's panel shows it instead
         }
         feedback = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
@@ -350,6 +355,7 @@ final class AppModel: ObservableObject {
         let rms = samples.isEmpty ? 0 : sqrt(samples.reduce(0) { $0 + $1 * $1 } / Float(samples.count))
         guard duration >= 0.3, rms >= 0.001 else {
             if typingLive { typer.clear() }
+            if mode == .agent { Agent.shared.close() }
             if prefs.sounds { Sounds.error() }
             hud.flash(.message(duration < 0.3 ? t("录音太短", "Too short") : t("没有听到声音", "Didn’t hear anything"), symbol: "waveform.slash"))
             return
@@ -411,6 +417,7 @@ final class AppModel: ObservableObject {
         pendingStart = nil
         selection = nil
         if isRecording {
+            if mode == .agent { Agent.shared.close() }
             _ = finishRecording()
             if typingLive { typer.clear() }
             if silently { hud.hide() } else { hud.flash(.message(t("已取消", "Cancelled"), symbol: "xmark.circle")) }
@@ -430,8 +437,9 @@ final class AppModel: ObservableObject {
         guard isRecording, !previewBusy else { return }
         // In the field the whole text is needed (it's edited in place); past `fieldLimit` it waits for the end.
         let inField = typingLive && typer.isTyping
-        if inField, Date().timeIntervalSince(recordingStart) > Self.fieldLimit { return }
-        let audio = recorder.recent(seconds: inField ? Self.fieldLimit : Self.previewWindow)
+        let whole = inField || mode == .agent   // the panel shows all of it, like the field
+        if whole, Date().timeIntervalSince(recordingStart) > Self.fieldLimit { return }
+        let audio = recorder.recent(seconds: whole ? Self.fieldLimit : Self.previewWindow)
         guard audio.count >= ASREngine.sampleRate / 2 else { return }
         let session = recordingStart
         let hotwords = prefs.hotwords ? prefs.vocabularyTerms + LearnedFixes.shared.hotwords : []
@@ -441,6 +449,7 @@ final class AppModel: ObservableObject {
             guard let transcript = try? await engine.transcribe(audio, hotwords: hotwords),
                   isRecording, recordingStart == session else { return }
             let text = LearnedFixes.shared.apply(transcript.text)
+            if mode == .agent { return Agent.shared.hear(text) }
             // Typed into the field; where that stopped working, shown in the bar instead.
             if inField, typer.show(text) { liveText = "" } else { liveText = text }
         }
@@ -470,13 +479,7 @@ final class AppModel: ObservableObject {
     /// The agent key: the words go to the agent's panel for the user to check and send with Return.
     /// Nothing leaves this Mac from here.
     private func ask(_ samples: [Float]) {
-        guard Agent.endpoint(prefs.agentURL, "text") != nil else {
-            hud.flash(.message(t("先在 设置 › Agent 里填好地址", "Set the agent's address in Settings › Agent first"), symbol: "sparkles"))
-            return
-        }
-        let anchor = hud.anchor
         pending += 1
-        hud.show(.transcribing)
         let job = UUID()
         jobs[job] = Task {
             defer { pending -= 1; jobs[job] = nil }
@@ -486,12 +489,13 @@ final class AppModel: ObservableObject {
                 guard !Task.isCancelled else { return }
                 let words = LearnedFixes.shared.apply(RepeatedEnding.fix(transcript.text))
                 guard !words.isEmpty else {
+                    Agent.shared.close()
                     hud.flash(.message(t("没有识别出文字", "No speech recognized"), symbol: "questionmark.circle"))
                     return
                 }
-                hud.hide()
-                Agent.shared.present(words, near: anchor)
+                Agent.shared.confirm(words)
             } catch {
+                Agent.shared.close()
                 hud.flash(.message(error.localizedDescription, symbol: "exclamationmark.triangle"))
             }
         }

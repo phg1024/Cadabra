@@ -14,6 +14,8 @@ final class Agent: ObservableObject {
     static let shared = Agent()
 
     enum Phase: Equatable {
+        /// Still recording: `text` is what has been recognized so far.
+        case listening
         case confirm, waiting, reply(String), failed(String)
     }
 
@@ -35,12 +37,12 @@ final class Agent: ObservableObject {
 
     // MARK: Panel
 
-    /// Shows the recognized words for the user to check (and edit) before they go anywhere.
-    func present(_ words: String, near anchor: NSRect?) {
+    /// The agent key went down: the panel opens and shows the words as they are recognized.
+    func listen(near anchor: NSRect?) {
         cancelRequest()
         speaker.stop()
-        text = words
-        phase = .confirm
+        text = ""
+        phase = .listening
         self.anchor = anchor
         let panel = self.panel ?? makePanel()
         self.panel = panel
@@ -49,6 +51,21 @@ final class Agent: ObservableObject {
         if let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier != getpid() { previous = front }
         NSApp.activate()
         panel.makeKeyAndOrderFront(nil)
+    }
+
+    /// What has been recognized so far, while the user talks.
+    func hear(_ partial: String) {
+        guard phase == .listening, partial != text else { return }
+        text = partial
+        DispatchQueue.main.async { [weak self] in self?.place(self?.panel) }
+    }
+
+    /// The final words, for the user to check (and edit) before they go anywhere.
+    func confirm(_ words: String) {
+        guard phase == .listening else { return }
+        text = words
+        phase = .confirm
+        DispatchQueue.main.async { [weak self] in self?.place(self?.panel) }
     }
 
     func send() {
@@ -125,10 +142,10 @@ final class Agent: ObservableObject {
             guard let self else { return }
             switch self.phase {
             case .reply, .failed: self.close()
-            case .confirm, .waiting: break
+            case .listening, .confirm, .waiting: break
             }
         }
-        let host = NSHostingView(rootView: AgentView().environmentObject(self).environmentObject(prefs)
+        let host = NSHostingView(rootView: AgentView().environmentObject(self).environmentObject(prefs).environmentObject(AppModel.shared)
             .themed(Theme.named(prefs.theme)))
         host.sizingOptions = [.intrinsicContentSize]
         panel.contentView = host
@@ -322,6 +339,7 @@ enum Keychain {
 struct AgentView: View {
     @EnvironmentObject var agent: Agent
     @EnvironmentObject var prefs: Preferences
+    @EnvironmentObject var model: AppModel
     @Environment(\.theme) private var theme
     @FocusState private var editing: Bool
 
@@ -338,6 +356,17 @@ struct AgentView: View {
                     .help(t("关闭（esc）", "Close (esc)"))
             }
             switch agent.phase {
+            case .listening:
+                HStack(spacing: 10) {
+                    Waveform(levels: Array(model.levels.suffix(18)), colors: [theme.link])
+                        .frame(width: 64, height: 18)
+                    Text(t("正在听…", "Listening…")).font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                Text(agent.text.isEmpty ? " " : agent.text)
+                    .font(.system(size: 14))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .fixedSize(horizontal: false, vertical: true)
+                hint(t("松开结束 · esc 取消", "Release to finish · esc to cancel"))
             case .confirm:
                 TextField("", text: $agent.text, axis: .vertical)
                     .textFieldStyle(.plain)
@@ -379,7 +408,7 @@ struct AgentView: View {
         .frame(width: 440)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(theme.background ?? Color(nsColor: .windowBackgroundColor)))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
-        .focusable(agent.phase != .confirm)
+        .focusable(agent.phase != .confirm && agent.phase != .listening)
         .onKeyPress(.escape) { agent.close(); return .handled }
         .onKeyPress(.return) {
             guard case .failed = agent.phase else { return .ignored }
