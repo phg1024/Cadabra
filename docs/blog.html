@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="zh-Hans" data-lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadabra · 开发手记</title>
+<meta name="description" content="How Cadabra was built, release by release: blog posts on the on-device dictation app for macOS. Cadabra 的开发手记。">
+<meta property="og:title" content="Cadabra · Blog">
+<meta property="og:description" content="How Cadabra was built, release by release.">
+<meta property="og:image" content="images/menu-light-en.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23546BFA'/%3E%3Cstop offset='1' stop-color='%239E52F2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='15' fill='url(%23g)'/%3E%3Cg fill='white'%3E%3Crect x='17' y='26' width='4' height='12' rx='2'/%3E%3Crect x='24' y='18' width='4' height='28' rx='2'/%3E%3Crect x='31' y='12' width='4' height='40' rx='2'/%3E%3Crect x='38' y='20' width='4' height='24' rx='2'/%3E%3Crect x='45' y='27' width='4' height='10' rx='2'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+/* The same tokens, nav and footer as index.html. */
+:root {
+  --bg: #fbfaff;
+  --surface: #ffffff;
+  --surface-2: #f2f0fb;
+  --text: #17142b;
+  --muted: #5e5a78;
+  --faint: #8c88a6;
+  --line: rgba(23, 20, 43, 0.09);
+  --brand-1: #546bfa;
+  --brand-2: #9e52f2;
+  --brand: #6a5cf5;
+  --gold: #e7a92a;
+  --shadow: 0 1px 2px rgba(23, 20, 43, 0.06), 0 12px 32px rgba(23, 20, 43, 0.08);
+  --radius: 18px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f0d1c;
+    --surface: #18152b;
+    --surface-2: #211d38;
+    --text: #efedfa;
+    --muted: #aaa5c7;
+    --faint: #7f7a9e;
+    --line: rgba(239, 237, 250, 0.1);
+    --brand: #9b8cff;
+    --gold: #f5c451;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.35);
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.65 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", "Hiragino Sans GB", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+html[data-lang="zh"] [lang="en"], html[data-lang="en"] [lang="zh"] { display: none !important; }
+a { color: var(--brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+img { max-width: 100%; height: auto; display: block; }
+
+nav { position: sticky; top: 0; z-index: 10; backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px);
+      background: color-mix(in srgb, var(--bg) 78%, transparent); border-bottom: 1px solid var(--line); }
+nav .wrap { display: flex; align-items: center; gap: 20px; height: 60px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 18px; color: var(--text); }
+.brand:hover { text-decoration: none; }
+.glyph { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+         display: grid; place-items: center; flex: none; }
+.glyph svg { width: 62%; height: 62%; }
+nav .links { margin-left: auto; display: flex; align-items: center; gap: 22px; font-size: 15px; }
+nav .links a { color: var(--muted); }
+nav .links a:hover { color: var(--text); text-decoration: none; }
+nav .links a.current { color: var(--text); }
+.lang { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: 4px 12px;
+        font: inherit; font-size: 13px; cursor: pointer; }
+@media (max-width: 720px) { nav .links a.optional { display: none; } }
+
+/* Page */
+.intro { padding: 72px 0 32px; }
+h1 { font-size: clamp(34px, 5.5vw, 52px); line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 14px; font-weight: 750; }
+h1 .grad { background: linear-gradient(120deg, var(--brand-1), var(--brand-2) 60%, var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lead { font-size: clamp(17px, 2vw, 19px); color: var(--muted); max-width: 700px; margin: 0; }
+
+.posts { list-style: none; padding: 0; margin: 0 0 88px; display: grid; gap: 22px; }
+.post { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); background: var(--surface); border: 1px solid var(--line);
+        border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+.post .thumb { display: block; background: #f7f8fb; aspect-ratio: 16 / 10; }
+.post .thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.post .thumb.fit img { object-fit: contain; padding: 14px; }
+.post .body { padding: 26px 30px; }
+.post .when { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.tag { font-size: 12.5px; font-weight: 650; padding: 2px 10px; border-radius: 999px; color: var(--brand);
+       background: color-mix(in srgb, var(--brand) 14%, transparent); }
+.post h2 { margin: 10px 0 8px; font-size: 22px; line-height: 1.3; font-weight: 680; }
+.post h2 a { color: var(--text); }
+.post p { margin: 0 0 14px; color: var(--muted); font-size: 15.5px; }
+.post .more { font-weight: 600; font-size: 15px; }
+@media (max-width: 760px) { .post { grid-template-columns: 1fr; } .post .body { padding: 22px; } }
+
+footer { border-top: 1px solid var(--line); padding: 36px 0 48px; color: var(--faint); font-size: 13.5px; }
+footer .row { display: flex; flex-wrap: wrap; gap: 18px; justify-content: space-between; align-items: center; }
+footer .links { display: flex; flex-wrap: wrap; gap: 18px; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="./">
+      <span class="glyph"><svg viewBox="0 0 24 24" fill="#fff"><rect x="3" y="9" width="2.4" height="6" rx="1.2"/><rect x="7.2" y="6" width="2.4" height="12" rx="1.2"/><rect x="11.4" y="3" width="2.4" height="18" rx="1.2"/><rect x="15.6" y="7" width="2.4" height="10" rx="1.2"/><rect x="19.8" y="10" width="2.4" height="4" rx="1.2"/></svg></span>
+      Cadabra
+    </a>
+    <div class="links">
+      <a class="optional" href="./#features"><span lang="zh">功能</span><span lang="en">Features</span></a>
+      <a class="optional" href="./#privacy"><span lang="zh">隐私</span><span lang="en">Privacy</span></a>
+      <a class="optional" href="./#install"><span lang="zh">安装</span><span lang="en">Install</span></a>
+      <a class="current" href="blog.html" aria-current="page"><span lang="zh">开发手记</span><span lang="en">Blog</span></a>
+      <a href="https://github.com/phg1024/Cadabra">GitHub</a>
+      <button class="lang" id="lang" type="button" aria-label="Switch language"><span lang="zh">English</span><span lang="en">中文</span></button>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap">
+  <header class="intro">
+    <h1><span lang="zh">Cadabra <span class="grad">是怎么做出来的</span></span><span lang="en">How Cadabra <span class="grad">was built</span></span></h1>
+    <p class="lead">
+      <span lang="zh">每个版本背后的故事，写在我的博客上：做了什么、试过什么没成、学到了什么。文章是英文的。</span>
+      <span lang="en">The story behind each release, from my blog: what changed, what I tried that didn't work, and what I learned.</span>
+    </p>
+  </header>
+
+  <ul class="posts">
+    <li class="post">
+      <a class="thumb" href="https://phg1024.github.io/blog/ai/cadabra/" tabindex="-1" aria-hidden="true">
+        <img src="https://phg1024.github.io/images/blog/cadabra/themes-web.jpg" alt="" loading="lazy">
+      </a>
+      <div class="body">
+        <div class="when"><span class="tag">1.2</span><time datetime="2026-11-18">2026-11-18</time></div>
+        <h2><a href="https://phg1024.github.io/blog/ai/cadabra/">Abracadabra, It Learns My Words</a></h2>
+        <p>
+          <span lang="zh">从你在输入框里改掉的词学习，但只学读音相近的改动；用一周时间试着让语音模型适应自己的声音；以及改名叫 Cadabra 的经过。</span>
+          <span lang="en">Learning from the words you fix, but only the fixes that sound like what was heard; a week of trying to make the speech model adapt to my voice; and how it got the name Cadabra.</span>
+        </p>
+        <a class="more" href="https://phg1024.github.io/blog/ai/cadabra/"><span lang="zh">阅读全文 →</span><span lang="en">Read the post →</span></a>
+      </div>
+    </li>
+    <li class="post">
+      <a class="thumb fit" href="https://phg1024.github.io/blog/ai/mywisper-correction/" tabindex="-1" aria-hidden="true">
+        <img src="https://phg1024.github.io/images/blog/mywisper/pipeline.svg" alt="" loading="lazy">
+      </a>
+      <div class="body">
+        <div class="when"><span class="tag">1.1</span><time datetime="2026-11-12">2026-11-12</time></div>
+        <h2><a href="https://phg1024.github.io/blog/ai/mywisper-correction/">My Dictation App Now Fixes What It Mishears</a></h2>
+        <p>
+          <span lang="zh">试 Whisper 时发现它会把英文翻译成中文，于是换了思路：在 App 里内置一个本地语言模型，按上下文修正听错的人名和词，大约三分之一秒。</span>
+          <span lang="en">Whisper translated my English into Chinese, so the app got a local language model instead, which fixes misheard names and words from context in about a third of a second.</span>
+        </p>
+        <a class="more" href="https://phg1024.github.io/blog/ai/mywisper-correction/"><span lang="zh">阅读全文 →</span><span lang="en">Read the post →</span></a>
+      </div>
+    </li>
+    <li class="post">
+      <a class="thumb fit" href="https://phg1024.github.io/blog/ai/mywisper/" tabindex="-1" aria-hidden="true">
+        <img src="https://phg1024.github.io/images/blog/mywisper/architecture.svg" alt="" loading="lazy">
+      </a>
+      <div class="body">
+        <div class="when"><span class="tag">1.0</span><time datetime="2026-11-10">2026-11-10</time></div>
+        <h2><a href="https://phg1024.github.io/blog/ai/mywisper/">Dictation That Stays on My Mac</a></h2>
+        <p>
+          <span lang="zh">第一版：Gemini 写的 Python 原型没能用起来，于是用一天重写成原生 Mac App，识别模型完全在本机运行，当晚开源发布。</span>
+          <span lang="en">The first version: a Python prototype that didn't quite work, rewritten in a day as a native Mac app whose speech model runs entirely on the machine, and released that night.</span>
+        </p>
+        <a class="more" href="https://phg1024.github.io/blog/ai/mywisper/"><span lang="zh">阅读全文 →</span><span lang="en">Read the post →</span></a>
+      </div>
+    </li>
+  </ul>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="row">
+      <span>© 2026 Peihong Guo · <span lang="zh">开源软件</span><span lang="en">Open source</span></span>
+      <span class="links">
+        <a href="./"><span lang="zh">Cadabra 主页</span><span lang="en">Cadabra home</span></a>
+        <a href="https://github.com/phg1024/Cadabra">GitHub</a>
+        <a href="https://github.com/phg1024/Cadabra/issues"><span lang="zh">反馈问题</span><span lang="en">Report an issue</span></a>
+      </span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  function set(lang) {
+    root.dataset.lang = lang;
+    root.lang = lang === "zh" ? "zh-Hans" : "en";
+    document.title = lang === "zh" ? "Cadabra · 开发手记" : "Cadabra · Blog";
+    try { localStorage.setItem("lang", lang); } catch (e) {}
+  }
+  var saved = null;
+  try { saved = localStorage.getItem("lang"); } catch (e) {}
+  set(saved || ((navigator.language || "").toLowerCase().indexOf("zh") === 0 ? "zh" : "en"));
+  document.getElementById("lang").addEventListener("click", function () { set(root.dataset.lang === "zh" ? "en" : "zh"); });
+})();
+</script>
+</body>
+</html>
