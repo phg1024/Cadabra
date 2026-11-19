@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-Hans"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadabra 视觉语言</title>
+<style>
+:root { --text:#17142B; --muted:#5E5A78; --faint:#8C88A6; --line:rgba(23,20,43,.1); --bg:#FBFAFF; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:16px/1.55 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", sans-serif; }
+main { max-width:1120px; margin:0 auto; padding:48px 24px 64px; }
+h1 { font-size:34px; margin:0 0 6px; } h1 span { background:linear-gradient(135deg,#47A3FB,#546BFA 50%,#9E52F2); -webkit-background-clip:text; color:transparent; }
+.lead { color:var(--muted); margin:0 0 36px; }
+h2 { font-size:20px; margin:40px 0 14px; color:#6A5CF5; }
+.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(130px,1fr)); gap:16px; }
+.sw b { display:block; margin-top:10px; font-size:15px; } .sw b span { color:var(--faint); font-weight:500; }
+.sw code { display:block; font:14px ui-monospace, Menlo, monospace; color:var(--muted); margin-top:2px; }
+.sw small { color:var(--faint); font-size:13px; }
+.chip { height:96px; border-radius:16px; border:1px solid var(--line); }
+.wide { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:18px; }
+.bar { height:96px; border-radius:16px; }
+.note { color:var(--muted); font-size:14px; margin-top:8px; }
+.stage { border-radius:20px; background:linear-gradient(135deg,#D1E8FE,#D4DAFE 50%,#E7D4FC); height:220px; position:relative; overflow:hidden; border:1px solid var(--line); }
+.marks { display:flex; flex-wrap:wrap; gap:28px; align-items:flex-end; }
+.marks figure { margin:0; text-align:center; color:var(--faint); font-size:13px; }
+.tile { display:inline-block; background:linear-gradient(135deg,#47A3FB,#546BFA 50%,#9E52F2); } .tile svg { width:100%; height:100%; display:block; }
+.menubar { display:inline-flex; align-items:center; gap:14px; height:30px; padding:0 14px; border-radius:8px; background:#ECEAF2; color:#333; font-size:13px; border:1px solid var(--line); }
+.pics { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:16px; }
+.pics img { width:100%; border-radius:14px; display:block; border:1px solid var(--line); }
+.pics figure { margin:0; } .pics figcaption { color:var(--faint); font-size:13px; margin-top:6px; }
+ul { padding-left:20px; color:var(--muted); } li { margin:4px 0; } li b { color:var(--text); }
+</style></head><body><main>
+<h1>Cadabra <span>视觉语言</span></h1>
+<p class="lead">把你的声音变成魔法：一条声波从左边进来，经过魔法，右边变出好东西，舞台是 logo 渐变放大、调淡后的背景板。</p>
+
+<h2>品牌色 Brand</h2>
+<div class="grid"><div class="sw"><div class="chip" style="background:#47A3FB"></div><b>天蓝 <span>Sky</span></b><code>#47A3FB</code><small>logo 渐变的左上角</small></div>
+<div class="sw"><div class="chip" style="background:#546BFA"></div><b>靛蓝 <span>Indigo</span></b><code>#546BFA</code><small>渐变的中段 / 起点</small></div>
+<div class="sw"><div class="chip" style="background:#9E52F2"></div><b>紫 <span>Violet</span></b><code>#9E52F2</code><small>渐变的终点</small></div>
+<div class="sw"><div class="chip" style="background:#6A5CF5"></div><b>强调紫 <span>Accent</span></b><code>#6A5CF5</code><small>链接、小处强调</small></div>
+<div class="sw"><div class="chip" style="background:#17142B"></div><b>墨色 <span>Ink</span></b><code>#17142B</code><small>正文文字</small></div></div>
+<div class="wide" style="margin-top:22px">
+  <div><div class="bar" style="background:linear-gradient(135deg,#47A3FB,#546BFA 50%,#9E52F2)"></div><b>logo 渐变</b> <span class="note">天蓝 → 靛蓝 → 紫：App 图标、favicon、导航小图标、菜单栏</span></div>
+  <div><div class="bar" style="background:linear-gradient(135deg,#546BFA,#9E52F2)"></div><b>品牌渐变</b> <span class="note">靛蓝 → 紫：按钮、标题强调色</span></div>
+</div>
+
+<h2>插画色 Illustration</h2>
+<div class="grid"><div class="sw"><div class="chip" style="background:#D1E8FE"></div><b>舞台天蓝 <span>Stage sky</span></b><code>#D1E8FE</code><small>背景左上角</small></div>
+<div class="sw"><div class="chip" style="background:#D4DAFE"></div><b>舞台靛蓝 <span>Stage indigo</span></b><code>#D4DAFE</code><small>背景中间</small></div>
+<div class="sw"><div class="chip" style="background:#E7D4FC"></div><b>舞台紫 <span>Stage violet</span></b><code>#E7D4FC</code><small>背景右下角</small></div>
+<div class="sw"><div class="chip" style="background:#8B74E8"></div><b>黏土紫 <span>Clay purple</span></b><code>#8B74E8</code><small>声波、道具</small></div>
+<div class="sw"><div class="chip" style="background:#C9BCF5"></div><b>浅紫 <span>Lilac</span></b><code>#C9BCF5</code><small>淡化、噪声的部分</small></div>
+<div class="sw"><div class="chip" style="background:#F7C548"></div><b>魔法金 <span>Magic gold</span></b><code>#F7C548</code><small>星星、修正后的线</small></div>
+<div class="sw"><div class="chip" style="background:#2A2238"></div><b>魔法黑 <span>Wand black</span></b><code>#2A2238</code><small>魔法棒、帽子</small></div>
+<div class="sw"><div class="chip" style="background:#FFFFFF"></div><b>纯白 <span>Cloud white</span></b><code>#FFFFFF</code><small>声波条、鸽子、卡片</small></div></div>
+<div style="margin-top:22px"><div class="stage"></div><p class="note">舞台背景：logo 渐变的放大淡化版，左上 #D1E8FE → 中 #D4DAFE → 右下 #E7D4FC（三种 logo 色各混 75% 白）。不用别的背景色，不做深色场景。铅笔黄、橡皮粉、植物绿这类自然色只能小面积出现。</p></div>
+
+<h2>Logo</h2>
+<div class="marks">
+  <figure><img src="images/icon.png" width="200" height="200" alt=""><figcaption>完整版 · App 图标</figcaption></figure>
+  <figure><img src="images/icon.png" width="64" height="64" alt=""><figcaption>64</figcaption></figure>
+  <figure><span class="tile" style="width:64px;height:64px;border-radius:17.9px"><svg viewBox="0 0 100 100"><g fill="#fff"><rect x="15.00" y="42.00" width="10.00" height="22.00" rx="5.00"/><rect x="28.50" y="33.00" width="10.00" height="40.00" rx="5.00"/><rect x="42.00" y="22.00" width="10.00" height="62.00" rx="5.00"/><rect x="55.50" y="33.00" width="10.00" height="40.00" rx="5.00"/><rect x="69.00" y="42.00" width="10.00" height="22.00" rx="5.00"/></g><polygon points="80.00,9.00 83.82,16.74 92.36,17.98 86.18,24.01 87.64,32.52 80.00,28.50 72.36,32.52 73.82,24.01 67.64,17.98 76.18,16.74" fill="#F7C548" stroke="#E09A1F" stroke-width="5.46" stroke-linejoin="round"/><polygon points="80.00,9.00 83.82,16.74 92.36,17.98 86.18,24.01 87.64,32.52 80.00,28.50 72.36,32.52 73.82,24.01 67.64,17.98 76.18,16.74" fill="#F7C548" stroke="#F7C548" stroke-width="3.64" stroke-linejoin="round"/></svg></span><figcaption>简化版 64</figcaption></figure>
+  <figure><span class="tile" style="width:32px;height:32px;border-radius:9.0px"><svg viewBox="0 0 100 100"><g fill="#fff"><rect x="15.00" y="42.00" width="10.00" height="22.00" rx="5.00"/><rect x="28.50" y="33.00" width="10.00" height="40.00" rx="5.00"/><rect x="42.00" y="22.00" width="10.00" height="62.00" rx="5.00"/><rect x="55.50" y="33.00" width="10.00" height="40.00" rx="5.00"/><rect x="69.00" y="42.00" width="10.00" height="22.00" rx="5.00"/></g><polygon points="80.00,9.00 83.82,16.74 92.36,17.98 86.18,24.01 87.64,32.52 80.00,28.50 72.36,32.52 73.82,24.01 67.64,17.98 76.18,16.74" fill="#F7C548" stroke="#E09A1F" stroke-width="5.46" stroke-linejoin="round"/><polygon points="80.00,9.00 83.82,16.74 92.36,17.98 86.18,24.01 87.64,32.52 80.00,28.50 72.36,32.52 73.82,24.01 67.64,17.98 76.18,16.74" fill="#F7C548" stroke="#F7C548" stroke-width="3.64" stroke-linejoin="round"/></svg></span><figcaption>32</figcaption></figure>
+  <figure><span class="tile" style="width:18px;height:18px;border-radius:5.0px"><svg viewBox="0 0 100 100"><g fill="#fff"><rect x="15.00" y="42.00" width="10.00" height="22.00" rx="5.00"/><rect x="28.50" y="33.00" width="10.00" height="40.00" rx="5.00"/><rect x="42.00" y="22.00" width="10.00" height="62.00" rx="5.00"/><rect x="55.50" y="33.00" width="10.00" height="40.00" rx="5.00"/><rect x="69.00" y="42.00" width="10.00" height="22.00" rx="5.00"/></g><polygon points="80.00,9.00 83.82,16.74 92.36,17.98 86.18,24.01 87.64,32.52 80.00,28.50 72.36,32.52 73.82,24.01 67.64,17.98 76.18,16.74" fill="#F7C548" stroke="#E09A1F" stroke-width="5.46" stroke-linejoin="round"/><polygon points="80.00,9.00 83.82,16.74 92.36,17.98 86.18,24.01 87.64,32.52 80.00,28.50 72.36,32.52 73.82,24.01 67.64,17.98 76.18,16.74" fill="#F7C548" stroke="#F7C548" stroke-width="3.64" stroke-linejoin="round"/></svg></span><figcaption>18</figcaption></figure>
+  <figure><span class="menubar"><span class="tile" style="width:18px;height:18px;border-radius:5.0px"><svg viewBox="0 0 100 100"><g fill="#fff"><rect x="15.00" y="42.00" width="10.00" height="22.00" rx="5.00"/><rect x="28.50" y="33.00" width="10.00" height="40.00" rx="5.00"/><rect x="42.00" y="22.00" width="10.00" height="62.00" rx="5.00"/><rect x="55.50" y="33.00" width="10.00" height="40.00" rx="5.00"/><rect x="69.00" y="42.00" width="10.00" height="22.00" rx="5.00"/></g><polygon points="80.00,9.00 83.82,16.74 92.36,17.98 86.18,24.01 87.64,32.52 80.00,28.50 72.36,32.52 73.82,24.01 67.64,17.98 76.18,16.74" fill="#F7C548" stroke="#E09A1F" stroke-width="5.46" stroke-linejoin="round"/><polygon points="80.00,9.00 83.82,16.74 92.36,17.98 86.18,24.01 87.64,32.52 80.00,28.50 72.36,32.52 73.82,24.01 67.64,17.98 76.18,16.74" fill="#F7C548" stroke="#F7C548" stroke-width="3.64" stroke-linejoin="round"/></svg></span><span>Wi‑Fi</span><span>13:05</span></span><figcaption>菜单栏</figcaption></figure>
+</div>
+<ul>
+  <li><b>完整版</b>：5 根白色声波条、右下一根直的魔法黑魔法棒、棒头一颗金星，周围几颗小金星和小圆点。64 点以上用。</li>
+  <li><b>简化版</b>：声波条加右上一颗金星，没有魔法棒。32 点以下用：favicon、网站导航、菜单栏。</li>
+  <li>以代码里的 <code>MagicMark</code> 为准，网站的 SVG 照它的几何形状画。</li>
+</ul>
+
+<h2>插画 Illustrations</h2>
+<figure style="margin:0 0 16px"><img src="images/banner.jpg" alt="" style="width:100%;border-radius:16px;border:1px solid var(--line);display:block"><figcaption class="note">README banner、分享预览图（2:1）</figcaption></figure>
+<div class="pics">
+  <figure><img src="images/blog/stays-on-mac.jpg" alt=""><figcaption>1.0 声音只留在你的 Mac 上</figcaption></figure>
+  <figure><img src="images/blog/fixes-mishears.jpg" alt=""><figcaption>1.1 修正听错的词</figcaption></figure>
+  <figure><img src="images/blog/learns-words.jpg" alt=""><figcaption>1.2 学会你的词</figcaption></figure>
+  <figure><img src="images/blog/agent-key.jpg" alt=""><figcaption>1.4 Agent 键</figcaption></figure>
+</div>
+<ul>
+  <li><b>画法</b>：柔和的黏土 3D，哑光带一点高光，圆角；光从左上来，地面有柔和的投影；没有颗粒和纹理。</li>
+  <li><b>构图</b>：一张图只讲一件事，从左往右读：左边是你说的话（黏土紫的声波），右边是变出来的东西（金色、白色）。</li>
+  <li><b>固定元素</b>：声波、魔法棒、紫色帽带的魔术帽、金星、白鸽、铅笔、按键、机器人。尽量复用，不另外发明。</li>
+  <li><b>不要</b>：图里的文字、人和手、别的产品的 logo。</li>
+  <li><b>尺寸</b>：博客图按 1280×800 生成，发布成 960×600 JPG；banner 1280×640。</li>
+</ul>
+</main></body></html>

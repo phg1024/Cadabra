@@ -8,7 +8,7 @@
 <meta property="og:title" content="Cadabra · Blog">
 <meta property="og:description" content="How Cadabra was built, release by release.">
 <meta property="og:image" content="images/menu-light-en.png">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23546BFA'/%3E%3Cstop offset='1' stop-color='%239E52F2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='15' fill='url(%23g)'/%3E%3Cg fill='white'%3E%3Crect x='17' y='26' width='4' height='12' rx='2'/%3E%3Crect x='24' y='18' width='4' height='28' rx='2'/%3E%3Crect x='31' y='12' width='4' height='40' rx='2'/%3E%3Crect x='38' y='20' width='4' height='24' rx='2'/%3E%3Crect x='45' y='27' width='4' height='10' rx='2'/%3E%3C/g%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%2347A3FB'/%3E%3Cstop offset='0.5' stop-color='%23546BFA'/%3E%3Cstop offset='1' stop-color='%239E52F2'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='18' fill='url(%23g)'/%3E%3Cg fill='white'%3E%3Crect x='9.60' y='26.88' width='6.40' height='14.08' rx='3.20'/%3E%3Crect x='18.24' y='21.12' width='6.40' height='25.60' rx='3.20'/%3E%3Crect x='26.88' y='14.08' width='6.40' height='39.68' rx='3.20'/%3E%3Crect x='35.52' y='21.12' width='6.40' height='25.60' rx='3.20'/%3E%3Crect x='44.16' y='26.88' width='6.40' height='14.08' rx='3.20'/%3E%3C/g%3E%3Cpolygon points='51.20,5.76 53.65,10.71 59.11,11.51 55.16,15.37 56.09,20.81 51.20,18.24 46.31,20.81 47.24,15.37 43.29,11.51 48.75,10.71' fill='%23F7C548' stroke='%23E09A1F' stroke-width='3.49' stroke-linejoin='round'/%3E%3Cpolygon points='51.20,5.76 53.65,10.71 59.11,11.51 55.16,15.37 56.09,20.81 51.20,18.24 46.31,20.81 47.24,15.37 43.29,11.51 48.75,10.71' fill='%23F7C548' stroke='%23F7C548' stroke-width='2.33' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
 /* The same tokens, nav and footer as index.html. */
 :root {
@@ -25,6 +25,10 @@
   --gold: #e7a92a;
   --shadow: 0 1px 2px rgba(23, 20, 43, 0.06), 0 12px 32px rgba(23, 20, 43, 0.08);
   --radius: 18px;
+  --sky: #47a3fb;
+  --mark: linear-gradient(135deg, #47a3fb, #546bfa 50%, #9e52f2);
+  --stage: linear-gradient(135deg, #d1e8fe, #d4dafe 50%, #e7d4fc);
+  --stage-soft: linear-gradient(135deg, #eef6ff, #f1f3ff 50%, #f8f1ff);
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -38,6 +42,8 @@
     --brand: #9b8cff;
     --gold: #f5c451;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.35);
+    --stage: linear-gradient(135deg, rgba(71, 163, 251, 0.18), rgba(84, 107, 250, 0.12) 50%, rgba(158, 82, 242, 0.2));
+    --stage-soft: linear-gradient(135deg, rgba(71, 163, 251, 0.06), rgba(84, 107, 250, 0.05) 50%, rgba(158, 82, 242, 0.08));
   }
 }
 * { box-sizing: border-box; }
@@ -59,9 +65,9 @@ nav { position: sticky; top: 0; z-index: 10; backdrop-filter: saturate(1.4) blur
 nav .wrap { display: flex; align-items: center; gap: 20px; height: 60px; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; font-size: 18px; color: var(--text); }
 .brand:hover { text-decoration: none; }
-.glyph { width: 30px; height: 30px; border-radius: 8px; background: linear-gradient(135deg, var(--brand-1), var(--brand-2));
+.glyph { width: 30px; height: 30px; border-radius: 8px; background: var(--mark);
          display: grid; place-items: center; flex: none; }
-.glyph svg { width: 62%; height: 62%; }
+.glyph svg { width: 100%; height: 100%; }
 nav .links { margin-left: auto; display: flex; align-items: center; gap: 22px; font-size: 15px; }
 nav .links a { color: var(--muted); }
 nav .links a:hover { color: var(--text); text-decoration: none; }
@@ -72,8 +78,10 @@ nav .links a.current { color: var(--text); }
 
 /* Page */
 .intro { padding: 72px 0 32px; }
+body::before { content: ""; position: absolute; inset: 0 0 auto; height: 460px; z-index: -1; background: var(--stage);
+               -webkit-mask-image: linear-gradient(#000 45%, transparent); mask-image: linear-gradient(#000 45%, transparent); }
 h1 { font-size: clamp(34px, 5.5vw, 52px); line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 14px; font-weight: 750; }
-h1 .grad { background: linear-gradient(120deg, var(--brand-1), var(--brand-2) 60%, var(--gold)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+h1 .grad { background: linear-gradient(120deg, var(--sky), var(--brand-1) 50%, var(--brand-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .lead { font-size: clamp(17px, 2vw, 19px); color: var(--muted); max-width: 700px; margin: 0; }
 
 .posts { list-style: none; padding: 0; margin: 0 0 88px; display: grid; gap: 22px; }
@@ -102,7 +110,7 @@ footer .links { display: flex; flex-wrap: wrap; gap: 18px; }
 <nav>
   <div class="wrap">
     <a class="brand" href="./">
-      <span class="glyph"><svg viewBox="0 0 24 24" fill="#fff"><rect x="3" y="9" width="2.4" height="6" rx="1.2"/><rect x="7.2" y="6" width="2.4" height="12" rx="1.2"/><rect x="11.4" y="3" width="2.4" height="18" rx="1.2"/><rect x="15.6" y="7" width="2.4" height="10" rx="1.2"/><rect x="19.8" y="10" width="2.4" height="4" rx="1.2"/></svg></span>
+      <span class="glyph"><svg viewBox="0 0 100 100"><g fill="#fff"><rect x="15.00" y="42.00" width="10.00" height="22.00" rx="5.00"/><rect x="28.50" y="33.00" width="10.00" height="40.00" rx="5.00"/><rect x="42.00" y="22.00" width="10.00" height="62.00" rx="5.00"/><rect x="55.50" y="33.00" width="10.00" height="40.00" rx="5.00"/><rect x="69.00" y="42.00" width="10.00" height="22.00" rx="5.00"/></g><polygon points="80.00,9.00 83.82,16.74 92.36,17.98 86.18,24.01 87.64,32.52 80.00,28.50 72.36,32.52 73.82,24.01 67.64,17.98 76.18,16.74" fill="#F7C548" stroke="#E09A1F" stroke-width="5.46" stroke-linejoin="round"/><polygon points="80.00,9.00 83.82,16.74 92.36,17.98 86.18,24.01 87.64,32.52 80.00,28.50 72.36,32.52 73.82,24.01 67.64,17.98 76.18,16.74" fill="#F7C548" stroke="#F7C548" stroke-width="3.64" stroke-linejoin="round"/></svg></span>
       Cadabra
     </a>
     <div class="links">
