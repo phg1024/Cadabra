@@ -71,6 +71,7 @@ final class AppModel: ObservableObject {
         // hotkey's event tap (and so the keyboard) with it.
         AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 0.3)
         history.persist = prefs.saveHistory
+        _ = LearnedFixes.shared   // loads (and cleans up) now rather than in the middle of the first dictation
         loadModel()
         recorder.onLevel = { [weak self] level in self?.push(level: level) }
         Microphones.noteDefault()
