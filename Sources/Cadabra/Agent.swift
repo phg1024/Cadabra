@@ -67,11 +67,13 @@ final class Agent: ObservableObject {
                 guard !Task.isCancelled else { return }
                 conversation = newID.map { ($0, Date()) } ?? conversation
                 phase = .reply(reply)
-                place(panel)
+                // After SwiftUI has laid out the answer.
+                DispatchQueue.main.async { [weak self] in self?.place(self?.panel) }
                 if prefs.agentSpeaks { speak(reply) }
             } catch {
                 guard !Task.isCancelled else { return }
                 phase = .failed(error.localizedDescription)
+                DispatchQueue.main.async { [weak self] in self?.place(self?.panel) }
             }
         }
     }
@@ -128,7 +130,7 @@ final class Agent: ObservableObject {
         }
         let host = NSHostingView(rootView: AgentView().environmentObject(self).environmentObject(prefs)
             .themed(Theme.named(prefs.theme)))
-        host.sizingOptions = [.preferredContentSize]
+        host.sizingOptions = [.intrinsicContentSize]
         panel.contentView = host
         return panel
     }
@@ -137,7 +139,8 @@ final class Agent: ObservableObject {
     private func place(_ panel: NSPanel?) {
         guard let panel else { return }
         panel.contentView?.layoutSubtreeIfNeeded()
-        let size = panel.contentView?.fittingSize ?? panel.frame.size
+        var size = panel.contentView?.fittingSize ?? .zero
+        if size.width < 100 || size.height < 40 { size = NSSize(width: 440, height: 130) }   // not laid out yet
         let screen = anchor.flatMap { a in NSScreen.screens.first { $0.frame.intersects(a) } }
             ?? NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         guard let frame = screen?.visibleFrame else { return }
@@ -151,6 +154,7 @@ final class Agent: ObservableObject {
         origin.x = min(max(origin.x, frame.minX + 8), frame.maxX - size.width - 8)
         origin.y = min(max(origin.y, frame.minY + 8), frame.maxY - size.height - 8)
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        log.notice("panel at \(Int(origin.x)),\(Int(origin.y)) size \(Int(size.width))x\(Int(size.height)), near the text: \(self.anchor != nil)")
     }
 
     // MARK: Requests
