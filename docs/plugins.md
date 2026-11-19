@@ -1,15 +1,16 @@
-# Look plugins for the agent panel
+# Agent plugins
 
-The agent key (Settings › Agent) opens a small panel: it shows the words while you talk, waits for
-Return, and shows the agent's answer. A **look plugin** draws at the top of that panel, so an agent
-can come with its own look (a face, a voice wave) without being part of Cadabra.
+The agent key (Settings › Agent) talks to an agent: you hold the key and speak, the words show in a
+small panel, Return sends them, and the agent's answer shows in the same panel. Cadabra knows no agent
+by itself: each one comes as a **plugin** that says how to talk to it and may bring its own **look**
+(a face, a voice wave) for the top of the panel.
 
 ## A plugin is a folder
 
 ```
 ~/Library/Application Support/Cadabra/Plugins/<id>/
   plugin.json
-  index.html        (and whatever it loads: scripts, images, fonts)
+  index.html        (optional: the look, and whatever it loads)
 ```
 
 `plugin.json`:
@@ -17,21 +18,50 @@ can come with its own look (a face, a voice wave) without being part of Cadabra.
 ```json
 {
   "name": "Echo",
-  "entry": "index.html",
-  "height": 140,
-  "background": "#0b141c",
-  "foreground": "#e6f1f5"
+  "agent": {
+    "address": "http://localhost:8787",
+    "ask": "/text",
+    "text_field": "text",
+    "reply_field": "reply",
+    "conversation": { "header": "X-Conversation-Id", "field": "conversation_id" },
+    "stream": "ndjson",
+    "speech": "/speech",
+    "health": "/health",
+    "token": "bearer"
+  },
+  "look": {
+    "entry": "index.html",
+    "height": 130,
+    "background": "#0b141c",
+    "foreground": "#e6f1f5"
+  }
 }
 ```
 
+### `agent` (required): how to talk to it
+
+| Key | Meaning | Default |
+|---|---|---|
+| `address` | Where it is; the user can set another in Settings. | (none) |
+| `ask` | `POST` here with `{"<text_field>": "<the words>"}`. | `/text` |
+| `text_field`, `reply_field` | The field the words go in, and the one the reply comes back in. | `text`, `reply` |
+| `conversation` | A follow-up within five minutes sends the last answer's `field` back in `header`, to continue the conversation. `null`: no conversations. | `X-Conversation-Id`, `conversation_id` |
+| `stream` | `"ndjson"`: the answer may come as newline-delimited JSON, so the agent can say what it is doing on the way (see below). | off |
+| `speech` | `POST {"text", "language"}` here for a WAV of the reply; offers **Read replies aloud**. | none |
+| `health` | `GET` here for **Test connection**. | none |
+| `token` | `"bearer"`: the token from Settings goes in `Authorization: Bearer …`; `"none"`: no token. | `bearer` |
+
+A failed request may answer `{"error": "…"}`; Cadabra shows that text.
+
+### `look` (optional): its face
+
 | Key | Meaning |
 |---|---|
-| `name` | Shown in Settings › Agent › Look. |
 | `entry` | The page, inside the folder (default `index.html`). |
 | `height` | Points it takes at the top of the panel, 40–400 (default 120). The panel is 440 points wide. |
 | `background`, `foreground` | Optional `#rrggbb` colours for the whole panel, so it looks of a piece with the plugin. |
 
-Pick it in Settings › Agent › Look; **Open the plugins folder** takes you there.
+Pick the plugin in Settings › Agent; **Open the plugins folder** takes you there.
 
 ## What the page is told
 
@@ -50,7 +80,7 @@ window.cadabra.update({
 Define `window.cadabra = { update(event) { … } }` and animate as you like (`requestAnimationFrame`).
 The page's background is transparent; paint your own if you want one.
 
-## What the page can't do
+## What the look can't do
 
 - It is loaded from its folder and may read only files in that folder.
 - Every network request (`http`, `https`, `ws`, `wss`) is blocked.
@@ -58,7 +88,7 @@ The page's background is transparent; paint your own if you want one.
 
 ## Where `activity` comes from
 
-Cadabra asks the agent for a streamed answer (`Accept: application/x-ndjson`). An agent that streams
-sends one JSON object per line: `{"type": "activity", "state": "thinking"}` while it works, then
-`{"type": "result", "reply": "…"}` (or `{"type": "error", "error": "…"}`). One that doesn't simply
-answers `{"reply": "…"}`, and `activity` stays null.
+With `"stream": "ndjson"` Cadabra asks for a streamed answer (`Accept: application/x-ndjson`). An agent
+that streams sends one JSON object per line: `{"type": "activity", "state": "thinking"}` while it
+works, then `{"type": "result", "reply": "…"}` (or `{"type": "error", "error": "…"}`). One that answers
+with plain JSON works too; `activity` then stays null.

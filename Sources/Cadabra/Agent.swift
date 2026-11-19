@@ -6,9 +6,9 @@ import os
 
 private let log = Logger(subsystem: "com.peihongguo.Cadabra", category: "agent")
 
-/// An agent the user talks to with the agent key: an HTTP endpoint that takes `POST /text {"text"}` and
-/// answers `{"reply"}`, and optionally `POST /speech {"text", "language"}` with a WAV (a small JSON API).
-/// What it can do is up to the agent. Nothing is sent until the user confirms the words with Return.
+/// The agent the user talks to with the agent key, as an `AgentPlugin` describes it: how to ask it, how
+/// it answers, whether it can speak. What it can do is up to the agent. Nothing is sent until the user
+/// confirms the words with Return.
 @MainActor
 final class Agent: ObservableObject {
     static let shared = Agent()
@@ -73,17 +73,18 @@ final class Agent: ObservableObject {
     func send() {
         let words = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !words.isEmpty, phase == .confirm || isFailed else { return }
-        guard let url = Self.endpoint(prefs.agentURL, "text") else {
-            phase = .failed(t("先在 设置 › Agent 里填好地址", "Set the address in Settings › Agent first"))
+        guard let plugin = AgentPlugin.selected, let url = Self.endpoint(plugin.address, plugin.api.ask) else {
+            phase = .failed(t("先在 设置 › Agent 里选好 agent 插件和地址", "Pick an agent plugin and its address in Settings › Agent first"))
             return
         }
+        let token = Keychain.token(for: plugin.id)
         phase = .waiting
         activity = nil
         if let last = conversation?.last, Date().timeIntervalSince(last) > Self.followUp { conversation = nil }
         let id = conversation?.id
         request = Task {
             do {
-                let (reply, newID) = try await Self.ask(words, url: url, conversation: id) { [weak self] state in
+                let (reply, newID) = try await Self.ask(words, api: plugin.api, url: url, token: token, conversation: id) { [weak self] state in
                     Task { @MainActor in if self?.phase == .waiting { self?.activity = state } }
                 }
                 activity = nil
@@ -92,7 +93,7 @@ final class Agent: ObservableObject {
                 phase = .reply(reply)
                 // After SwiftUI has laid out the answer.
                 DispatchQueue.main.async { [weak self] in self?.place(self?.panel) }
-                if prefs.agentSpeaks { speak(reply) }
+                if prefs.agentSpeaks, plugin.api.speech != nil { speak(reply) }
             } catch {
                 guard !Task.isCancelled else { return }
                 phase = .failed(error.localizedDescription)
@@ -101,10 +102,10 @@ final class Agent: ObservableObject {
         }
     }
 
-    /// The plugin's event: see `VisualPlugin.event`.
+    /// The look's event: see `AgentPlugin.event`.
     var pluginEvent: String {
         let level: Float = phase == .listening ? (AppModel.shared.levels.last ?? 0) : (speaking ? speaker.level : 0)
-        return VisualPlugin.event(phase: phase, activity: activity, speaking: speaking, level: level)
+        return AgentPlugin.event(phase: phase, activity: activity, speaking: speaking, level: level)
     }
 
     func close() {
@@ -118,9 +119,9 @@ final class Agent: ObservableObject {
     }
 
     func speak(_ reply: String) {
-        guard let url = Self.endpoint(prefs.agentURL, "speech") else { return }
+        guard let plugin = AgentPlugin.selected, let path = plugin.api.speech, let url = Self.endpoint(plugin.address, path) else { return }
         speaking = true
-        speaker.say(reply, url: url) { [weak self] in self?.speaking = false }
+        speaker.say(reply, url: url, token: Keychain.token(for: plugin.id)) { [weak self] in self?.speaking = false }
     }
 
     func stopSpeaking() {
@@ -188,29 +189,30 @@ final class Agent: ObservableObject {
 
     // MARK: Requests
 
-    /// `base` + "/" + `path`, or nil when `base` isn't an http(s) address.
+    /// `base` + `path`, or nil when `base` isn't an http(s) address.
     nonisolated static func endpoint(_ base: String, _ path: String) -> URL? {
         let trimmed = base.trimmingCharacters(in: .whitespaces)
         guard let url = URL(string: trimmed), ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil else { return nil }
-        return url.appendingPathComponent(path)
+        let relative = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return relative.isEmpty ? url : url.appendingPathComponent(relative)
     }
 
-    private nonisolated static func authorized(_ url: URL, method: String = "POST", timeout: TimeInterval) -> URLRequest {
+    private nonisolated static func authorized(_ url: URL, token: String?, method: String = "POST", timeout: TimeInterval) -> URLRequest {
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = method
-        if let token = Keychain.token(), !token.isEmpty { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        if let token, !token.isEmpty { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         return request
     }
 
     /// The reply, and the conversation it belongs to. An agent that streams (newline-delimited JSON, when
     /// asked) reports what it is doing along the way through `onActivity`.
-    nonisolated static func ask(_ words: String, url: URL, conversation: String?,
+    nonisolated static func ask(_ words: String, api: AgentPlugin.API, url: URL, token: String?, conversation: String?,
                                 onActivity: @escaping @Sendable (String) -> Void = { _ in }) async throws -> (String, String?) {
-        var request = authorized(url, timeout: 180)
+        var request = authorized(url, token: api.token == "bearer" ? token : nil, timeout: 180)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/x-ndjson, application/json", forHTTPHeaderField: "Accept")
-        if let conversation { request.setValue(conversation, forHTTPHeaderField: "X-Conversation-Id") }
-        request.httpBody = try JSONSerialization.data(withJSONObject: ["text": words])
+        request.setValue(api.streams ? "application/x-ndjson, application/json" : "application/json", forHTTPHeaderField: "Accept")
+        if let conversation, let header = api.conversationHeader { request.setValue(conversation, forHTTPHeaderField: header) }
+        request.httpBody = try JSONSerialization.data(withJSONObject: [api.textField: words])
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
         var status = (response as? HTTPURLResponse)?.statusCode ?? 0
         var object: [String: Any] = [:]
@@ -232,17 +234,17 @@ final class Agent: ObservableObject {
             log.error("agent answered \(status, privacy: .public)")
             throw Failure(object["error"] as? String ?? t("Agent 返回了错误（\(status)）", "The agent returned an error (\(status))"))
         }
-        let reply = (object["reply"] as? String ?? object["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let reply = (object[api.replyField] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !reply.isEmpty else { throw Failure(t("Agent 没有回复", "The agent didn't reply")) }
-        let id = (object["conversation_id"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        let id = api.conversationHeader == nil ? nil : (object[api.conversationField] as? String).flatMap { $0.isEmpty ? nil : $0 }
         return (reply, id)
     }
 
-    /// For Settings: whether the address answers (GET /health) with this token.
-    nonisolated static func check(_ base: String) async -> String {
-        guard let url = endpoint(base, "health") else { return t("地址不对：要以 http:// 或 https:// 开头", "Not an address: it should start with http:// or https://") }
+    /// For Settings: whether the address answers (the plugin's health check, or its ask path) with this token.
+    nonisolated static func check(_ base: String, api: AgentPlugin.API, token: String?) async -> String {
+        guard let url = endpoint(base, api.health ?? "") else { return t("地址不对：要以 http:// 或 https:// 开头", "Not an address: it should start with http:// or https://") }
         do {
-            let (_, response) = try await URLSession.shared.data(for: authorized(url, method: "GET", timeout: 8))
+            let (_, response) = try await URLSession.shared.data(for: authorized(url, token: api.token == "bearer" ? token : nil, method: "GET", timeout: 8))
             switch (response as? HTTPURLResponse)?.statusCode ?? 0 {
             case 200: return t("连上了", "Connected")
             case 401, 403: return t("连上了，但口令不对", "Reached it, but the token was refused")
@@ -253,8 +255,8 @@ final class Agent: ObservableObject {
         }
     }
 
-    nonisolated static func speech(_ text: String, url: URL) async throws -> Data {
-        var request = authorized(url, timeout: 120)
+    nonisolated static func speech(_ text: String, url: URL, token: String?) async throws -> Data {
+        var request = authorized(url, token: token, timeout: 120)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let language = text.unicodeScalars.contains { $0.properties.isIdeographic } ? "zh" : "en"
         request.httpBody = try JSONSerialization.data(withJSONObject: ["text": text, "language": language])
@@ -288,10 +290,10 @@ final class Speaker: NSObject, AVAudioPlayerDelegate {
     private var done: (() -> Void)?
     private var generation = 0
 
-    func say(_ text: String, url: URL, done: @escaping () -> Void) {
+    func say(_ text: String, url: URL, token: String?, done: @escaping () -> Void) {
         stop()
         self.done = done
-        queue = Self.chunks(text).map { chunk in Task { try? await Agent.speech(chunk, url: url) } }
+        queue = Self.chunks(text).map { chunk in Task { try? await Agent.speech(chunk, url: url, token: token) } }
         playNext(generation)
     }
 
@@ -348,23 +350,29 @@ final class Speaker: NSObject, AVAudioPlayerDelegate {
     }
 }
 
-/// The agent's token, in the login keychain; never shown or logged.
+/// Each agent plugin's token, in the login keychain; never shown or logged.
 enum Keychain {
     private static let service = "com.peihongguo.Cadabra.agent"
+    /// Where the one token went before agents came as plugins.
+    private static let legacy = "token"
 
-    static func token() -> String? {
+    static func token(for plugin: String) -> String? {
+        read(plugin) ?? read(legacy)
+    }
+
+    private static func read(_ account: String) -> String? {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
-                                    kSecAttrAccount as String: "token", kSecReturnData as String: true]
+                                    kSecAttrAccount as String: account, kSecReturnData as String: true]
         var item: CFTypeRef?
         guard SecItemCopyMatching(query as CFDictionary, &item) == errSecSuccess, let data = item as? Data else { return nil }
         return String(data: data, encoding: .utf8)
     }
 
-    static var hasToken: Bool { !(token() ?? "").isEmpty }
+    static func hasToken(for plugin: String) -> Bool { !(token(for: plugin) ?? "").isEmpty }
 
-    static func setToken(_ token: String) {
+    static func setToken(_ token: String, for plugin: String) {
         let match: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
-                                    kSecAttrAccount as String: "token"]
+                                    kSecAttrAccount as String: plugin]
         SecItemDelete(match as CFDictionary)
         guard !token.isEmpty else { return }
         var add = match
@@ -381,19 +389,20 @@ struct AgentView: View {
     @Environment(\.colorScheme) private var colorScheme
     @FocusState private var editing: Bool
 
-    private var plugin: VisualPlugin? { VisualPlugin.named(prefs.agentPlugin) }
+    private var plugin: AgentPlugin? { AgentPlugin.selected }
+    private var look: AgentPlugin.Look? { plugin?.look }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            if let plugin {
-                PluginView(plugin: plugin) { agent.pluginEvent }
-                    .frame(height: plugin.height)
+            if let plugin, let look {
+                PluginView(plugin: plugin, look: look) { agent.pluginEvent }
+                    .frame(height: look.height)
                     .padding(.horizontal, -14).padding(.top, -14)   // edge to edge at the top
                     .clipShape(UnevenRoundedRectangle(topLeadingRadius: 14, topTrailingRadius: 14, style: .continuous))
             }
             HStack(spacing: 6) {
                 Image(systemName: "sparkles").foregroundStyle(.tint)
-                Text(prefs.agentName).font(.system(size: 13, weight: .semibold))
+                Text(plugin?.name ?? "Agent").font(.system(size: 13, weight: .semibold))
                 Spacer()
                 if agent.phase == .waiting { ProgressView().controlSize(.small) }
                 Button { agent.close() } label: { Image(systemName: "xmark").font(.system(size: 10, weight: .bold)) }
@@ -435,11 +444,13 @@ struct AgentView: View {
                 HStack {
                     hint(t("esc 关闭", "esc to close"))
                     Spacer()
-                    Button { agent.speaking ? agent.stopSpeaking() : agent.speak(reply) } label: {
-                        Image(systemName: agent.speaking ? "stop.fill" : "speaker.wave.2")
+                    if plugin?.api.speech != nil {
+                        Button { agent.speaking ? agent.stopSpeaking() : agent.speak(reply) } label: {
+                            Image(systemName: agent.speaking ? "stop.fill" : "speaker.wave.2")
+                        }
+                        .buttonStyle(.borderless)
+                        .help(agent.speaking ? t("停止朗读", "Stop reading") : t("朗读", "Read aloud"))
                     }
-                    .buttonStyle(.borderless)
-                    .help(agent.speaking ? t("停止朗读", "Stop reading") : t("朗读", "Read aloud"))
                     Button { TextInjector.copy(reply) } label: { Image(systemName: "doc.on.doc") }
                         .buttonStyle(.borderless)
                         .help(t("复制", "Copy"))
@@ -452,9 +463,9 @@ struct AgentView: View {
         }
         .padding(14)
         .frame(width: 440)
-        .foregroundStyle(plugin?.foreground.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
-        .environment(\.colorScheme, plugin?.background != nil ? .dark : colorScheme)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(plugin?.background ?? theme.background ?? Color(nsColor: .windowBackgroundColor)))
+        .foregroundStyle(look?.foreground.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
+        .environment(\.colorScheme, look?.background != nil ? .dark : colorScheme)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(look?.background ?? theme.background ?? Color(nsColor: .windowBackgroundColor)))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
         .focusable(agent.phase != .confirm && agent.phase != .listening)
         .onKeyPress(.escape) { agent.close(); return .handled }

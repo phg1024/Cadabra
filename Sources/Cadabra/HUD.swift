@@ -202,8 +202,8 @@ struct HUDView: View {
     private var hint: String {
         if model.mode == .agent {
             return model.latched || prefs.trigger == .toggle
-                ? t("说给 \(prefs.agentName) · 再按一下结束", "Talk to \(prefs.agentName) · press again to finish")
-                : t("说给 \(prefs.agentName) · 松开结束", "Talk to \(prefs.agentName) · release to finish")
+                ? t("说给 agent · 再按一下结束", "Talk to the agent · press again to finish")
+                : t("说给 agent · 松开结束", "Talk to the agent · release to finish")
         }
         if model.editing {
             return model.latched || prefs.trigger == .toggle

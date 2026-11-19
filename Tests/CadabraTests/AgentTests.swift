@@ -32,9 +32,30 @@ final class StubProtocol: URLProtocol {
 struct AgentTests {
     init() { URLProtocol.registerClass(StubProtocol.self) }
 
+    static let streaming = AgentPlugin.API(address: "http://agent.test", streams: true, speech: "/speech", health: "/health")
+
+    @Test func anotherAgentsFieldsAndToken() async throws {
+        var api = AgentPlugin.API(address: "http://agent.test", ask: "/v1/ask")
+        api.textField = "prompt"
+        api.replyField = "answer"
+        api.conversationHeader = nil
+        StubProtocol.handler = { request, body in
+            let sent = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any]
+            #expect(sent?["prompt"] as? String == "hi")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer secret-for-test")
+            #expect(request.value(forHTTPHeaderField: "X-Conversation-Id") == nil)
+            #expect(request.value(forHTTPHeaderField: "Accept") == "application/json")
+            return (200, ["answer": "hello", "conversation_id": "ignored"])
+        }
+        let (reply, id) = try await Agent.ask("hi", api: api, url: Agent.endpoint(api.address, api.ask)!, token: "secret-for-test", conversation: "c1")
+        #expect(reply == "hello")
+        #expect(id == nil)
+    }
+
     @Test func endpoints() {
         #expect(Agent.endpoint("http://localhost:8787", "text")?.absoluteString == "http://localhost:8787/text")
-        #expect(Agent.endpoint(" http://192.168.1.20:8080/ ", "speech")?.path == "/speech")
+        #expect(Agent.endpoint(" http://192.168.1.20:8080/ ", "/speech")?.path == "/speech")
+        #expect(Agent.endpoint("http://localhost:8787", "")?.absoluteString == "http://localhost:8787")
         #expect(Agent.endpoint("localhost:8787", "text") == nil)
         #expect(Agent.endpoint("", "text") == nil)
     }
@@ -48,7 +69,7 @@ struct AgentTests {
             #expect(request.value(forHTTPHeaderField: "X-Conversation-Id") == "c-abc")
             return (200, ["text": "明天的会几点", "reply": " 十点半。 ", "conversation_id": "c-abc"])
         }
-        let (reply, id) = try await Agent.ask("明天的会几点", url: URL(string: "http://agent.test/text")!, conversation: "c-abc")
+        let (reply, id) = try await Agent.ask("明天的会几点", api: Self.streaming, url: URL(string: "http://agent.test/text")!, token: nil, conversation: "c-abc")
         #expect(reply == "十点半。")
         #expect(id == "c-abc")
     }
@@ -56,9 +77,9 @@ struct AgentTests {
     @Test func anErrorFromTheAgentIsShownAsItSaysIt() async {
         StubProtocol.handler = { _, _ in (503, ["error": "正在处理其他请求，请稍后再试"]) }
         await #expect(throws: Agent.Failure.self) {
-            _ = try await Agent.ask("你好", url: URL(string: "http://agent.test/text")!, conversation: nil)
+            _ = try await Agent.ask("你好", api: Self.streaming, url: URL(string: "http://agent.test/text")!, token: nil, conversation: nil)
         }
-        do { _ = try await Agent.ask("你好", url: URL(string: "http://agent.test/text")!, conversation: nil) } catch {
+        do { _ = try await Agent.ask("你好", api: Self.streaming, url: URL(string: "http://agent.test/text")!, token: nil, conversation: nil) } catch {
             #expect(error.localizedDescription == "正在处理其他请求，请稍后再试")
         }
     }
@@ -83,7 +104,7 @@ struct AgentTests {
                 """)
         }
         let seen = Seen()
-        let (reply, id) = try await Agent.ask("明天天气", url: URL(string: "http://agent.test/text")!, conversation: nil) { seen.add($0) }
+        let (reply, id) = try await Agent.ask("明天天气", api: Self.streaming, url: URL(string: "http://agent.test/text")!, token: nil, conversation: nil) { seen.add($0) }
         #expect(reply == "明天晴。")
         #expect(id == "c-x")
         #expect(seen.states == ["thinking", "researching"])
@@ -92,7 +113,7 @@ struct AgentTests {
     @Test func aStreamedErrorIsAnError() async {
         StubProtocol.handler = { _, _ in (200, "{\"type\": \"activity\", \"state\": \"thinking\"}\n{\"type\": \"error\", \"error\": \"回复超时了\"}\n") }
         do {
-            _ = try await Agent.ask("你好", url: URL(string: "http://agent.test/text")!, conversation: nil)
+            _ = try await Agent.ask("你好", api: Self.streaming, url: URL(string: "http://agent.test/text")!, token: nil, conversation: nil)
             Issue.record("no error")
         } catch {
             #expect(error.localizedDescription == "回复超时了")
@@ -107,41 +128,57 @@ final class Seen: @unchecked Sendable {
     var states: [String] { lock.withLock { list } }
 }
 
-struct VisualPluginTests {
-    func folder(_ manifest: String?, entry: String = "index.html") throws -> URL {
+struct AgentPluginTests {
+    func folder(_ manifest: String?, page: String? = "index.html") throws -> URL {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent("plugin-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         if let manifest { try Data(manifest.utf8).write(to: dir.appendingPathComponent("plugin.json")) }
-        try Data("<html></html>".utf8).write(to: dir.appendingPathComponent(entry))
+        if let page { try Data("<html></html>".utf8).write(to: dir.appendingPathComponent(page)) }
         return dir
     }
 
-    @Test func readsTheManifest() throws {
-        let dir = try folder(##"{"name": "Echo", "height": 150, "background": "#0b141c", "foreground": "#e6f1f5"}"##)
+    @Test func readsTheAgentAndItsLook() throws {
+        let dir = try folder(##"""
+            {"name": "Echo",
+             "agent": {"address": "http://localhost:8787", "ask": "/text", "stream": "ndjson", "speech": "/speech", "health": "/health"},
+             "look": {"height": 150, "background": "#0b141c", "foreground": "#e6f1f5"}}
+            """##)
         defer { try? FileManager.default.removeItem(at: dir) }
-        let plugin = try #require(VisualPlugin.load(dir))
+        let plugin = try #require(AgentPlugin.load(dir))
         #expect(plugin.name == "Echo")
-        #expect(plugin.height == 150)
-        #expect(plugin.background != nil && plugin.foreground != nil)
-        #expect(plugin.entry.lastPathComponent == "index.html")
+        #expect(plugin.api.address == "http://localhost:8787")
+        #expect(plugin.api.streams)
+        #expect(plugin.api.speech == "/speech")
+        #expect(plugin.api.conversationHeader == "X-Conversation-Id")
+        #expect(plugin.look?.height == 150)
+        #expect(plugin.look?.background != nil)
+    }
+
+    @Test func aLookIsOptionalButTheAgentIsNot() throws {
+        let plain = try folder(#"{"name": "Plain", "agent": {"address": "http://x.local", "conversation": null}}"#, page: nil)
+        defer { try? FileManager.default.removeItem(at: plain) }
+        let plugin = try #require(AgentPlugin.load(plain))
+        #expect(plugin.look == nil)
+        #expect(plugin.api.conversationHeader == nil)
+        #expect(!plugin.api.streams && plugin.api.speech == nil)
+        let lookOnly = try folder(#"{"name": "Just a look", "look": {}}"#)
+        defer { try? FileManager.default.removeItem(at: lookOnly) }
+        #expect(AgentPlugin.load(lookOnly) == nil)
     }
 
     @Test func thePageMustBeInsideTheFolder() throws {
-        let dir = try folder(#"{"name": "Sneaky", "entry": "../../etc/hosts"}"#)
+        let dir = try folder(#"{"name": "Sneaky", "agent": {"address": "http://x.local"}, "look": {"entry": "../../etc/hosts"}}"#)
         defer { try? FileManager.default.removeItem(at: dir) }
-        #expect(VisualPlugin.load(dir) == nil)
-        let none = try folder(nil)
-        defer { try? FileManager.default.removeItem(at: none) }
-        #expect(VisualPlugin.load(none) == nil)   // no plugin.json
+        #expect(try #require(AgentPlugin.load(dir)).look == nil)
     }
 
     @Test @MainActor func theEventSaysWhatIsHappening() throws {
-        let event = VisualPlugin.event(phase: .waiting, activity: "coding", speaking: false, level: 1.7)
+        let event = AgentPlugin.event(phase: .waiting, activity: "coding", speaking: false, level: 1.7)
         let object = try #require(try JSONSerialization.jsonObject(with: Data(event.utf8)) as? [String: Any])
         #expect(object["phase"] as? String == "waiting")
         #expect(object["activity"] as? String == "coding")
         #expect(object["level"] as? Double == 1)
-        let quiet = VisualPlugin.event(phase: .listening, activity: nil, speaking: false, level: 0.25)
+        let quiet = AgentPlugin.event(phase: .listening, activity: nil, speaking: false, level: 0.25)
         #expect(quiet.contains("\"activity\":null"))
     }
 }

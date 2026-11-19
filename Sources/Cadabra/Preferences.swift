@@ -186,12 +186,11 @@ final class Preferences: ObservableObject {
             if agentHotkey != nil, editHotkey == agentHotkey { editHotkey = nil }
         }
     }
-    /// The agent's address: an endpoint that takes POST /text {"text"} and answers {"reply"}.
+    /// The agent's address, if not the one its plugin gives.
     @Published var agentURL: String { didSet { defaults.set(agentURL, forKey: "agentURL") } }
-    @Published var agentName: String { didSet { defaults.set(agentName, forKey: "agentName") } }
     /// Read the agent's replies aloud (its POST /speech).
     @Published var agentSpeaks: Bool { didSet { defaults.set(agentSpeaks, forKey: "agentSpeaks") } }
-    /// A `VisualPlugin` for the agent's panel (its folder name); empty for none.
+    /// The `AgentPlugin` for the agent key (its folder name); empty: the only one installed.
     @Published var agentPlugin: String { didSet { defaults.set(agentPlugin, forKey: "agentPlugin") } }
     @Published var trigger: TriggerMode { didSet { defaults.set(trigger.rawValue, forKey: "trigger") } }
     @Published var language: Language { didSet { defaults.set(language.rawValue, forKey: "language") } }
@@ -276,7 +275,6 @@ final class Preferences: ObservableObject {
         let agent = defaults.string(forKey: "agentHotkey").flatMap { Hotkey(rawValue: $0) }
         agentHotkey = agent == key || agent == editKey ? nil : agent
         agentURL = defaults.string(forKey: "agentURL") ?? ""
-        agentName = defaults.string(forKey: "agentName") ?? "Agent"
         agentSpeaks = defaults.bool(forKey: "agentSpeaks")
         agentPlugin = defaults.string(forKey: "agentPlugin") ?? ""
         trigger = TriggerMode(rawValue: defaults.string(forKey: "trigger") ?? "") ?? .auto

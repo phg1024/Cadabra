@@ -201,8 +201,8 @@ final class AppModel: ObservableObject {
             if pressed == mode, prefs.trigger != .auto || latched { stop() }
             return
         }
-        if pressed == .agent, Agent.endpoint(prefs.agentURL, "text") == nil {
-            hud.flash(.message(t("先在 设置 › Agent 里填好地址", "Set the agent's address in Settings › Agent first"), symbol: "sparkles"))
+        if pressed == .agent, AgentPlugin.selected.flatMap({ Agent.endpoint($0.address, $0.api.ask) }) == nil {
+            hud.flash(.message(t("先在 设置 › Agent 里选好 agent 插件和地址", "Pick an agent plugin and its address in Settings › Agent first"), symbol: "sparkles"))
             return
         }
         let work = DispatchWorkItem { [weak self] in
