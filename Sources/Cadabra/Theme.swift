@@ -25,6 +25,8 @@ struct Theme: Identifiable, Hashable {
     var barGradient: [Color]?
     /// A gold star instead of the dot while recording.
     var star = false
+    /// Notices on the bar ("Didn't hear anything"); nil uses `barText`.
+    var notice: Color?
     var serif = false
 
     var title: String { t(zh, en) }
@@ -42,9 +44,11 @@ struct Theme: Identifiable, Hashable {
         var bar = self
         bar.star = true
         if dark {
+            bar.notice = Color(hex: 0xFFA94D)
             bar.bar = Color(hex: 0x17142B).opacity(0.92)
             bar.wave = Theme.ramp([0x47A3FB, 0x546BFA, 0x9E52F2], count: 28)  // one per bar: AppModel.levelCount
         } else {
+            bar.notice = Color(hex: 0xE8590C)
             bar.bar = Color(hex: 0xD4DAFE)
             bar.barGradient = [Color(hex: 0xD1E8FE), Color(hex: 0xD4DAFE), Color(hex: 0xE7D4FC)]
             bar.barText = Color(hex: 0x17142B)

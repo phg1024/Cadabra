@@ -131,7 +131,7 @@ struct HUDView: View {
                     .frame(height: 46)
                     .background(Capsule().fill(theme.barFill))
                     .overlay(Capsule().strokeBorder(theme.barText.opacity(0.14), lineWidth: 1))
-                    .shadow(color: .black.opacity(theme.barIsDark ? 0.35 : 0.2), radius: 14, y: 6)
+                    .shadow(color: .black.opacity(theme.barIsDark ? 0.22 : 0.1), radius: 8, y: 3)  // stays inside the 14 pt below the bar
                     .foregroundStyle(theme.barText)
                     .transition(.scale(scale: 0.92).combined(with: .opacity))
             }
@@ -195,8 +195,9 @@ struct HUDView: View {
             }
         case .message(let text, let symbol):
             HStack(spacing: 10) {
-                Image(systemName: symbol).font(.system(size: 15)).foregroundStyle(.orange)
-                Text(text).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                Image(systemName: symbol).font(.system(size: 15)).foregroundStyle(theme.notice ?? .orange)
+                Text(text).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                    .foregroundStyle(theme.notice ?? theme.barText)
             }
         }
     }
@@ -212,8 +213,8 @@ struct HUDView: View {
                 ? t("说要怎么改 · 再按一下结束", "Say how to change it · press again to finish")
                 : t("说要怎么改 · 松开结束", "Say how to change it · release to finish")
         }
-        if model.latched || prefs.trigger == .toggle { return t("再按 \(prefs.hotkey.keycap) 结束 · esc 取消", "Press \(prefs.hotkey.keycap) again to finish · esc to cancel") }
-        return t("松开结束 · esc 取消", "Release to finish · esc to cancel")
+        if model.latched || prefs.trigger == .toggle { return t("再按 \(prefs.hotkey.keycap) 结束", "Press \(prefs.hotkey.keycap) again to finish") }
+        return t("松开结束", "Release to finish")
     }
 }
 

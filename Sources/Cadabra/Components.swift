@@ -7,37 +7,30 @@ enum Brand {
         startPoint: .topLeading, endPoint: .bottomTrailing)
 }
 
-/// The mark inside the app icon, drawn on a unit tile: six sound bars, a magic wand with a star on its tip,
-/// and a few stars (see docs/visual-language.md). The same at every size, down to the menu bar.
+/// The mark inside the app icon, drawn on a unit tile: six sound bars, the wave of the first Cadabra
+/// mark, with a big gold star at the top right, a small one at the bottom left and a gold dot in each of
+/// the other corners (see docs/visual-language.md).
 struct MagicMark: View {
     var bars: Color = .white
 
     static let gold = Color(hex: 0xF7C548)
     static let goldEdge = Color(hex: 0xE09A1F)
-    static let wand = Color(hex: 0x2A2238)
 
     var body: some View {
         Canvas { context, size in
             let s = size.width
             func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
-            // The bars, centered.
-            // Six slim bars of uneven height, the wave of the first Cadabra mark.
-            let heights: [CGFloat] = [0.132, 0.345, 0.55, 0.287, 0.434, 0.184]
-            let width: CGFloat = 0.05
-            let xs: [CGFloat] = [0.283, 0.374, 0.458, 0.541, 0.629, 0.716]  // centered; the wand may cross them
-            let mid: CGFloat = 0.5
+            // Six bars of uneven height, centered.
+            let heights: [CGFloat] = [0.158, 0.414, 0.66, 0.344, 0.521, 0.221]
+            let width: CGFloat = 0.06
+            let xs: [CGFloat] = [0.240, 0.349, 0.450, 0.549, 0.655, 0.759]
             for (x, h) in zip(xs, heights) {
-                let rect = CGRect(x: (x - width / 2) * s, y: (mid - h / 2) * s, width: width * s, height: h * s)
+                let rect = CGRect(x: (x - width / 2) * s, y: (0.5 - h / 2) * s, width: width * s, height: h * s)
                 context.fill(Path(roundedRect: rect, cornerRadius: width * s / 2), with: .color(bars))
             }
-            var wand = Path()
-            wand.move(to: p(0.646, 0.807))
-            wand.addLine(to: p(0.885, 0.50))
-            context.stroke(wand, with: .color(Self.wand), style: StrokeStyle(lineWidth: max(0.042 * s, 1.3), lineCap: .round))  // still a line at menu-bar size
-            Self.star(&context, center: p(0.895, 0.465), radius: 0.068 * s)
-            Self.star(&context, center: p(0.80, 0.19), radius: 0.046 * s)
-            Self.star(&context, center: p(0.255, 0.78), radius: 0.036 * s)
-            for (x, y, r) in [(0.20, 0.25, 0.016), (0.75, 0.33, 0.013)] as [(CGFloat, CGFloat, CGFloat)] {
+            Self.star(&context, center: p(0.80, 0.20), radius: 0.075 * s)
+            Self.star(&context, center: p(0.21, 0.80), radius: 0.045 * s)
+            for (x, y, r) in [(0.21, 0.22, 0.017), (0.80, 0.80, 0.015)] as [(CGFloat, CGFloat, CGFloat)] {
                 context.fill(Path(ellipseIn: CGRect(x: (x - r) * s, y: (y - r) * s, width: 2 * r * s, height: 2 * r * s)), with: .color(Self.gold))
             }
         }
