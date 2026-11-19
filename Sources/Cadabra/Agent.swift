@@ -24,6 +24,8 @@ final class Agent: ObservableObject {
     private var panel: NSPanel?
     private var anchor: NSRect?
     private var request: Task<Void, Never>?
+    /// The app the user was in: it gets the focus back when the panel goes.
+    private var previous: NSRunningApplication?
     private var conversation: (id: String, last: Date)?
     private let speaker = Speaker()
     private let prefs = Preferences.shared
@@ -43,6 +45,9 @@ final class Agent: ObservableObject {
         let panel = self.panel ?? makePanel()
         self.panel = panel
         place(panel)
+        // Cadabra comes to the front so Return and esc reach the panel; the app before gets them back after.
+        if let front = NSWorkspace.shared.frontmostApplication, front.processIdentifier != getpid() { previous = front }
+        NSApp.activate()
         panel.makeKeyAndOrderFront(nil)
     }
 
@@ -75,7 +80,10 @@ final class Agent: ObservableObject {
         cancelRequest()
         speaker.stop()
         speaking = false
+        guard panel?.isVisible == true else { return }
         panel?.orderOut(nil)
+        previous?.activate()
+        previous = nil
     }
 
     func speak(_ reply: String) {
@@ -111,9 +119,12 @@ final class Agent: ObservableObject {
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.onResign = { [weak self] in
-            // Clicking elsewhere puts it away, unless an answer is still on its way.
-            guard let self, self.phase != .waiting else { return }
-            self.close()
+            // Clicking elsewhere puts an answer away; words still to confirm, or an answer on its way, stay.
+            guard let self else { return }
+            switch self.phase {
+            case .reply, .failed: self.close()
+            case .confirm, .waiting: break
+            }
         }
         let host = NSHostingView(rootView: AgentView().environmentObject(self).environmentObject(prefs)
             .themed(Theme.named(prefs.theme)))
@@ -317,6 +328,10 @@ struct AgentView: View {
                 Text(prefs.agentName).font(.system(size: 13, weight: .semibold))
                 Spacer()
                 if agent.phase == .waiting { ProgressView().controlSize(.small) }
+                Button { agent.close() } label: { Image(systemName: "xmark").font(.system(size: 10, weight: .bold)) }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
+                    .help(t("关闭（esc）", "Close (esc)"))
             }
             switch agent.phase {
             case .confirm:
