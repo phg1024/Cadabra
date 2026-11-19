@@ -35,13 +35,14 @@ agent that says back what it heard, and its plugin.
 | `entry` | The page, inside the folder. | `index.html` |
 | `width`, `height` | The window's size to start with, 120–900 points; the page can change it. | 440, 180 |
 | `hosts` | The only places the page may reach: scheme, host and port, e.g. `"https://agent.example.com"`. | none |
+| `position` | Where the window opens: `"text"`, next to where you are typing, or `"center"`, the middle of the screen. | `"text"` |
 
 Pick the plugin in Settings › Agent; **Open the plugins folder** takes you there.
 
 ## The window
 
 When the agent key goes down, Cadabra opens a borderless window near where you are typing (or high in
-the middle of the screen) and shows the page in it. The page's background is transparent: paint your
+the middle of the screen), or in the middle of the screen if `position` is `"center"`, and shows the page in it. The page's background is transparent: paint your
 own card, corners and all. The window takes the keyboard while it is open, and the app you were in
 gets it back when it closes.
 

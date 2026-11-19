@@ -109,12 +109,15 @@ final class PluginHost: NSObject, WKScriptMessageHandlerWithReply, WKNavigationD
     }
 
     /// Just above where the text was going, like the recording bar; otherwise high in the middle of the screen.
+    /// A plugin that asks to be centered goes in the middle of the screen the text is on.
     private func place(_ panel: NSPanel, size: NSSize) {
         let screen = anchor.flatMap { a in NSScreen.screens.first { $0.frame.intersects(a) } }
             ?? NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         guard let frame = screen?.visibleFrame else { return }
         var origin: NSPoint
-        if let anchor {
+        if plugin?.centered == true {
+            origin = NSPoint(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2)
+        } else if let anchor {
             origin = NSPoint(x: anchor.midX - size.width / 2, y: anchor.maxY + 10)
             if origin.y + size.height > frame.maxY { origin.y = anchor.minY - 10 - size.height }
         } else {

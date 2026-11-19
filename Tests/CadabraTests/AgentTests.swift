@@ -94,6 +94,15 @@ struct AgentPluginTests {
         #expect(plugin.hosts == ["http://localhost:8787", "https://agent.example:443"])
     }
 
+    @Test func whereTheWindowGoes() throws {
+        let dir = try folder(#"{"name": "Echo", "position": "center"}"#)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        #expect(try #require(AgentPlugin.load(dir)).centered)
+        let plain = try folder(#"{"name": "Echo"}"#)
+        defer { try? FileManager.default.removeItem(at: plain) }
+        #expect(try #require(AgentPlugin.load(plain)).centered == false)
+    }
+
     @Test func onlyItsOwnHosts() throws {
         let dir = try folder(#"{"name": "Echo", "hosts": ["http://localhost:8787"]}"#)
         defer { try? FileManager.default.removeItem(at: dir) }

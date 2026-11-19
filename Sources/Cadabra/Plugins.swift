@@ -15,6 +15,8 @@ struct AgentPlugin: Identifiable, Equatable {
     let height: Double
     /// The only places the page may reach (scheme, host and port), e.g. "http://localhost:8787".
     let hosts: [String]
+    /// The window opens in the middle of the screen instead of next to the text (`"position": "center"`).
+    var centered = false
 
     static let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         .appendingPathComponent("Cadabra/Plugins")
@@ -33,7 +35,8 @@ struct AgentPlugin: Identifiable, Equatable {
         named(Preferences.shared.agentPlugin) ?? (Preferences.shared.agentPlugin.isEmpty ? installed().first : nil)
     }
 
-    /// `plugin.json`: {"name": "…", "entry": "index.html", "width": 440, "height": 180, "hosts": ["http://…"]}.
+    /// `plugin.json`: {"name": "…", "entry": "index.html", "width": 440, "height": 180, "hosts": ["http://…"],
+    /// "position": "text" or "center"}.
     static func load(_ folder: URL) -> AgentPlugin? {
         guard let data = try? Data(contentsOf: folder.appendingPathComponent("plugin.json")),
               let manifest = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
@@ -43,7 +46,8 @@ struct AgentPlugin: Identifiable, Equatable {
         let size = { (key: String, fallback: Double) in min(max((manifest[key] as? NSNumber)?.doubleValue ?? fallback, 120), 900) }
         let hosts = (manifest["hosts"] as? [String] ?? []).compactMap(origin)
         return AgentPlugin(id: folder.lastPathComponent, name: manifest["name"] as? String ?? folder.lastPathComponent,
-                           folder: folder, entry: entry, width: size("width", 440), height: size("height", 180), hosts: hosts)
+                           folder: folder, entry: entry, width: size("width", 440), height: size("height", 180), hosts: hosts,
+                           centered: (manifest["position"] as? String)?.lowercased() == "center")
     }
 
     /// "scheme://host:port" of an http(s) address, or nil.
