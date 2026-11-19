@@ -137,6 +137,15 @@ struct AgentPluginTests {
         return dir
     }
 
+    @Test func theExamplePluginLoads() throws {
+        let folder = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("examples/echo-agent/plugin")
+        let plugin = try #require(AgentPlugin.load(folder))
+        #expect(plugin.api.address == "http://localhost:8787")
+        #expect(plugin.api.streams && plugin.api.speech != nil && plugin.api.health != nil)
+        #expect(plugin.look != nil)
+    }
+
     @Test func readsTheAgentAndItsLook() throws {
         let dir = try folder(##"""
             {"name": "Echo",

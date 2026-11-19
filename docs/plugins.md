@@ -5,6 +5,9 @@ small panel, Return sends them, and the agent's answer shows in the same panel. 
 by itself: each one comes as a **plugin** that says how to talk to it and may bring its own **look**
 (a face, a voice wave) for the top of the panel.
 
+A working example to try or start from is in [`examples/echo-agent`](../examples/echo-agent): a tiny
+agent that says back what it heard, and its plugin.
+
 ## A plugin is a folder
 
 ```

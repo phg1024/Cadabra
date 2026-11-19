@@ -1,0 +1,49 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- An example look: a glowing orb that breathes with the voice and takes the colour of what is
+     happening. Cadabra calls window.cadabra.update(event) 20 times a second (docs/plugins.md). -->
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; }
+</style>
+<canvas id="orb"></canvas>
+<script>
+const COLORS = { listening: [94, 229, 205], waiting: [182, 160, 255], speaking: [255, 182, 110], idle: [120, 150, 175] };
+let event = { phase: "confirm", activity: null, speaking: false, level: 0 };
+window.cadabra = { update(next) { event = next; } };
+
+const canvas = document.getElementById("orb"), ctx = canvas.getContext("2d");
+let color = COLORS.idle.slice(), level = 0;
+
+function draw(now) {
+  const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  const key = event.speaking ? "speaking" : event.phase === "listening" ? "listening" : event.phase === "waiting" ? "waiting" : "idle";
+  color = color.map((c, i) => c + (COLORS[key][i] - c) * 0.08);   // ease toward the new colour
+  level += (event.level - level) * (event.level > level ? 0.5 : 0.12);
+  const t = now / 1000;
+  const thinking = event.phase === "waiting" ? 0.08 * Math.sin(t * 4) : 0;   // a slow pulse while it waits
+  const r = h * (0.18 + 0.04 * Math.sin(t * 1.5) + level * 0.16 + thinking);
+  const [cr, cg, cb] = color.map(Math.round);
+
+  const glow = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, r * 2.6);
+  glow.addColorStop(0, `rgba(${cr},${cg},${cb},0.35)`);
+  glow.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, w, h);
+
+  const core = ctx.createRadialGradient(w / 2 - r * 0.3, h / 2 - r * 0.3, r * 0.1, w / 2, h / 2, r);
+  core.addColorStop(0, "rgba(255,255,255,0.95)");
+  core.addColorStop(1, `rgba(${cr},${cg},${cb},0.9)`);
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.arc(w / 2, h / 2, r, 0, Math.PI * 2);
+  ctx.fill();
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+</script>

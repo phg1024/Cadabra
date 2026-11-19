@@ -1,0 +1,20 @@
+{
+  "name": "Echo (example)",
+  "agent": {
+    "address": "http://localhost:8787",
+    "ask": "/text",
+    "text_field": "text",
+    "reply_field": "reply",
+    "conversation": { "header": "X-Conversation-Id", "field": "conversation_id" },
+    "stream": "ndjson",
+    "speech": "/speech",
+    "health": "/health",
+    "token": "bearer"
+  },
+  "look": {
+    "entry": "index.html",
+    "height": 110,
+    "background": "#101418",
+    "foreground": "#e8edf2"
+  }
+}
