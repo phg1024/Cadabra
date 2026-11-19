@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/about-en.png" width="420" alt="Cadabra">
+  <img src="docs/images/banner.jpg" width="640" alt="Cadabra">
 </p>
 
 <h1 align="center">Cadabra</h1>
