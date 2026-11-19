@@ -40,7 +40,7 @@ parts white, running diagonally from the top-left to the bottom-right.
 A little of a natural color is fine where an object needs it (a yellow pencil, a pink eraser, a green
 plant), never as a large area. No other background colors, no dark scenes.
 
-### On the site
+### Site colors
 
 The site's CSS variables follow the table: `--brand-1` indigo, `--brand-2` violet, `--brand` accent,
 `--gold` `#E7A92A` (gold a little darker, so it reads as text on white). Dark mode keeps the same hues,
@@ -52,12 +52,12 @@ Five white rounded sound bars (short, medium, tall, medium, short), a little lef
 **Wand black** wand from the lower right with a **Magic gold** star on its tip; a few gold stars and
 dots around. On the **mark gradient** tile.
 
-- **Full mark**: bars, wand, stars. The app icon, and anywhere 64 points or bigger.
-- **Small mark**: bars and one gold star at the top right, no wand. 32 points and smaller: the favicon,
-  the site's nav, the menu bar window.
+The same mark everywhere, at every size: the app icon, the menu bar, the mark inside the app, the
+favicon and the site's nav. It keeps its own colors whatever the app's theme, and there is no
+simplified version (at menu-bar size the wand is kept at least 1.3 points wide so it still reads).
 
 The source of truth is code: `MagicMark` in `Sources/Cadabra/Components.swift` (`AppIconArt` renders
-the app icon, `AppGlyph` the in-app mark). The site's SVGs copy its geometry.
+the app icon, `AppGlyph` the mark in the app and the menu bar). The site's SVGs copy its geometry.
 
 ## Illustrations
 
@@ -69,11 +69,27 @@ Blog thumbnails, the README banner, anything drawn rather than a screenshot.
 - **Stage**: the pale diagonal gradient above, smooth, sky blue at the top-left to violet at the bottom-right.
 - **Story**: one idea per picture, read left to right. What you say comes in on the left (a **Clay
   purple** wave); what Cadabra makes of it comes out on the right (gold, white).
-- **Vocabulary**: the wave (a slim round clay tube, even above and below its center line, uneven
-  heights like speech), the wand, the top hat with a violet band, gold stars, white doves, the pencil,
-  the key, the robot. Reuse them instead of inventing new ones.
 - **Never**: text or letters in the picture (models garble them), people or hands, logos of other
   products.
+- **Connections are continuous**: where one thing flows into another (the wave into the wand, the
+  light out of the key), they join with no gap, no kink and no offset.
+
+### The elements
+
+Reuse these instead of inventing new ones; when one appears in a new picture, give the model an
+approved picture that has it as a reference ("the wave in image 2"), so it comes out the same.
+
+| Element | How it looks |
+|---|---|
+| **The wave** (what you say) | A slim, smooth, matte clay tube in **Clay purple** `#8B74E8`, about 0.95% of the picture's width thick (12 px at 1280). Eight or nine waves, heights uneven like speech, as far below its center line as above. It runs left to right. |
+| **The noisy wave** (what was misheard) | Dense, spiky, static-like noise in **Lilac** `#C9BCF5`, paler than the wave. |
+| **The light** (what Cadabra makes of it) | A glowing line of light: a pale, almost white core inside a soft **Magic gold** glow. Never a solid gold tube. It starts exactly where the input arrives (on the key, at the end of the wave) and ends where it goes (the robot, the pencil's tip). |
+| **The wand** | A perfectly straight, rigid **Wand black** rod with a white tip, never bent. The wave flows into its back end; its tip points into the hat. |
+| **The top hat** | **Wand black**, with a **Violet** band. Out of it come gold clay stars and white doves. |
+| **The pencil** | An ordinary yellow wooden pencil with a pink eraser. No face, no arms, no legs. |
+| **The keyboard** | A whole compact keyboard: a clay purple body, pale keys. The agent key is one key glowing gold with a small white star on it, never one giant key. |
+| **The robot** | White, a dark visor face, cyan eyes, pink cheeks, in a white app window with a purple title bar. |
+| **Doves and stars** | White clay doves with spread wings; plump gold clay stars and small sparkles. |
 
 ### Sizes
 
@@ -106,6 +122,20 @@ channel, so they have no steps; use them for anything else that sits on the stag
 `tools/stage.py --plates` makes them again if the colors change. Save JPEGs with
 `subsampling=0` (4:4:4) for the same reason.
 
-To change an existing picture, pass it as the reference and say what to keep ("keep the composition and
-every object") before what to change. Editing the same picture over and over adds grain: after two or
-three edits, generate it fresh from the full prompt instead.
+**Redraw, don't patch.** To change a picture, draw the whole picture again, with the approved pictures
+as references for the composition and for each element, rather than editing a part of it: edits drift
+(a wave that should rise from a key comes from the middle of the keyboard) and editing the same picture
+over and over adds grain.
+
+**Check it, don't eyeball it.** After drawing, measure the wave's thickness and color against the
+table above. `tools/clay_purple.py cut.png out.png` brings the wave in a cutout to exactly Clay purple,
+keeping its shading.
+
+## On the site
+
+- The hero and the blog's header sit on the stage gradient, fading out downwards; alternate sections
+  on a paler version of it.
+- The headline's gradient words use the mark gradient.
+- The blog cards show the picture at 16:10 next to the summary; keep each summary short enough (about
+  60 Chinese characters, 160 English) that the card is no taller than the picture.
+- The favicon and the nav glyph are the mark; the menu bar shows it in color.
