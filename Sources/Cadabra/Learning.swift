@@ -109,8 +109,7 @@ final class LearnedFixes: ObservableObject {
     /// Words the corrector must leave where they are: the user's vocabulary and what they corrected to,
     /// except what a fix of theirs says to change.
     func keep(vocabulary: String) -> [String] {
-        let words = vocabulary.split(whereSeparator: { ",，、;；\n".contains($0) })
-            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        let words = Preferences.terms(in: vocabulary)
         let changed = Set(fixes.map { $0.core.heard.lowercased() })
         var seen = Set<String>()
         return (words + terms).filter { !changed.contains($0.lowercased()) && seen.insert($0.lowercased()).inserted }

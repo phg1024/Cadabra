@@ -6,6 +6,7 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             GeneralSettings().tabItem { Label(t("通用", "General"), systemImage: "gearshape") }
+            VocabularySettings().tabItem { Label(t("词汇", "Vocabulary"), systemImage: "character.book.closed") }
             PermissionSettings().tabItem { Label(t("权限", "Permissions"), systemImage: "lock.shield") }
             AboutSettings().tabItem { Label(t("关于", "About"), systemImage: "info.circle") }
         }
@@ -52,11 +53,9 @@ private struct GeneralSettings: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var prefs: Preferences
     @EnvironmentObject var history: HistoryStore
-    @ObservedObject private var learned = LearnedFixes.shared
     @ObservedObject private var training = TrainingData.shared
     @State private var confirmClear = false
     @State private var confirmClearTraining = false
-    @State private var showLearned = false
 
     var body: some View {
         Form {
@@ -126,13 +125,11 @@ private struct GeneralSettings: View {
                 Picker(t("语言提示", "Language hint"), selection: $prefs.language) {
                     ForEach(Language.allCases) { Text($0.title).tag($0) }
                 }
-                TextField(t("常用词", "Vocabulary"), text: $prefs.vocabulary,
-                          prompt: Text(t("比如 GitHub, Expedia, 万豪 Bonvoy", "e.g. GitHub, Expedia, Marriott Bonvoy")))
                 Toggle(t("去掉句末的句号", "Drop the final period"), isOn: $prefs.dropTrailingPeriod)
             } header: {
                 Text(t("识别", "Recognition"))
             } footer: {
-                Text(t("麦克风选「自动」时，戴着 AirPods 之类的蓝牙耳机也用电脑或摄像头的麦克风录音：用耳机的麦克风要先把耳机切到通话模式，开始录音会慢好几秒，耳机里的声音也会变闷。SenseVoice 会自己判断说的是哪种语言，语言提示多数时候选「自动」就好。常用词填你常说的名字和术语，用逗号隔开，下面的纠错会参考它。", "With the microphone on Automatic, a Bluetooth headset such as AirPods only plays sound and the Mac’s or camera’s microphone records: using the headset’s microphone switches it to call mode, which delays the start by seconds and muffles what it plays. SenseVoice detects the language by itself; Auto is right most of the time. Vocabulary: names and terms you often say, separated by commas, used by the correction below."))
+                Text(t("麦克风选「自动」时，戴着 AirPods 之类的蓝牙耳机也用电脑或摄像头的麦克风录音：用耳机的麦克风要先把耳机切到通话模式，开始录音会慢好几秒，耳机里的声音也会变闷。SenseVoice 会自己判断说的是哪种语言，语言提示多数时候选「自动」就好。常用的名字和术语在「词汇」页里填。", "With the microphone on Automatic, a Bluetooth headset such as AirPods only plays sound and the Mac’s or camera’s microphone records: using the headset’s microphone switches it to call mode, which delays the start by seconds and muffles what it plays. SenseVoice detects the language by itself; Auto is right most of the time. Names and terms you often say go in the Vocabulary tab."))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
@@ -150,7 +147,7 @@ private struct GeneralSettings: View {
             } header: {
                 Text(t("纠错（实验）", "Correction (experimental)"))
             } footer: {
-                Text(t("识别完用一个 Qwen 模型按上下文改正同音字和专有名词（参考上面的常用词），每句多花大约半秒。模型要先下载一次（来自 Hugging Face），之后纠错完全在这台 Mac 上运行，不联网。", "After recognition, a Qwen model fixes sound-alike words and names from context (using the vocabulary above). Adds about half a second. The model is downloaded once from Hugging Face; after that, correction runs entirely on this Mac with no network access."))
+                Text(t("识别完用一个 Qwen 模型按上下文改正同音字和专有名词（参考「词汇」页里的词），每句多花大约半秒。模型要先下载一次（来自 Hugging Face），之后纠错完全在这台 Mac 上运行，不联网。", "After recognition, a Qwen model fixes sound-alike words and names from context (using the Vocabulary tab). Adds about half a second. The model is downloaded once from Hugging Face; after that, correction runs entirely on this Mac with no network access."))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.leading)
@@ -160,10 +157,7 @@ private struct GeneralSettings: View {
             Section {
                 Toggle(isOn: $prefs.learnFromEdits) {
                     Text(t("从我的修改中学习", "Learn from my fixes"))
-                    Text(t("文字输入后两分钟内，如果你在原处改了某个词，Cadabra 会记住。", "If you fix a word in the typed text within two minutes, Cadabra remembers it."))
-                }
-                LabeledContent(t("已学到 \(learned.fixes.count) 处", "\(learned.fixes.count) learned")) {
-                    Button(t("查看…", "Show…")) { showLearned = true }
+                    Text(t("文字输入后两分钟内，如果你在原处改了某个词，Cadabra 会记住。学到的词在「词汇」页里。", "If you fix a word in the typed text within two minutes, Cadabra remembers it. What it learned is in the Vocabulary tab."))
                 }
                 Toggle(isOn: $prefs.collectTraining) {
                     Text(t("保存录音，用来训练语音模型", "Keep recordings to train the speech model"))
@@ -226,7 +220,6 @@ private struct GeneralSettings: View {
         }
         .formStyle(.grouped)
         .frame(height: 560)
-        .sheet(isPresented: $showLearned) { LearnedFixesView() }
         .confirmationDialog(t("删除全部 \(training.samples.count) 段训练录音？", "Delete all \(training.samples.count) training recordings?"), isPresented: $confirmClearTraining) {
             Button(t("删除", "Delete"), role: .destructive) { training.clear() }
         } message: {
@@ -440,49 +433,172 @@ private struct CorrectEntrySheet: View {
 }
 
 /// What Cadabra has learned from the user's fixes.
-struct LearnedFixesView: View {
-    @ObservedObject var learned = LearnedFixes.shared
-    @Environment(\.dismiss) private var dismiss
+/// The user's own words, and the fixes learned from their corrections.
+struct VocabularySettings: View {
+    @EnvironmentObject var prefs: Preferences
+    @ObservedObject private var learned = LearnedFixes.shared
+    @State private var newTerm = ""
+    @State private var filter = ""
     @State private var confirmClear = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(t("学到的改正", "Learned fixes")).font(.headline)
-            Text(t("改过两次（或在历史记录里改过一次）的会直接替换；其余的交给纠错模型参考。", "Fixes made twice (or once in History) are applied directly; the rest are hints for the correction model."))
-                .font(.system(size: 11)).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            if learned.fixes.isEmpty {
-                ContentUnavailableView(t("还没有学到什么", "Nothing learned yet"), systemImage: "graduationcap")
-                    .frame(height: 220)
-            } else {
-                List {
-                    ForEach(learned.fixes.sorted { $0.lastSeen > $1.lastSeen }) { fix in
-                        HStack {
-                            Text(fix.heard).foregroundStyle(.secondary)
-                            Image(systemName: "arrow.right").font(.system(size: 10)).foregroundStyle(.tertiary)
-                            Text(fix.meant)
-                            Spacer()
-                            Text(fix.confirmed ? t("自动替换", "applied") : t("提示", "hint"))
-                                .font(.system(size: 11)).foregroundStyle(fix.confirmed ? Color.accentColor : Color.secondary)
-                            Button { learned.delete(fix) } label: { Image(systemName: "xmark.circle.fill") }
-                                .buttonStyle(.borderless).foregroundStyle(.tertiary)
-                                .help(t("忘掉这条", "Forget this one"))
+        Form {
+            Section {
+                let terms = prefs.vocabularyTerms
+                if !terms.isEmpty {
+                    FlowLayout(spacing: 6) {
+                        ForEach(terms, id: \.self) { term in
+                            TermChip(text: term) { prefs.vocabularyTerms.removeAll { $0 == term } }
                         }
                     }
+                    .padding(.vertical, 4)
                 }
-                .frame(height: 260)
+                HStack {
+                    TextField(t("加一个词", "Add a term"), text: $newTerm,
+                              prompt: Text(t("比如 GitHub、万豪 Bonvoy；可以一次粘贴多个，用逗号隔开", "e.g. GitHub, Marriott Bonvoy; paste several separated by commas")))
+                        .labelsHidden()
+                        .onSubmit(add)
+                    Button(t("添加", "Add"), action: add).disabled(Preferences.terms(in: newTerm).isEmpty)
+                }
+            } header: {
+                Text(t("常用词（\(prefs.vocabularyTerms.count)）", "Your vocabulary (\(prefs.vocabularyTerms.count))"))
+            } footer: {
+                note(t("你常说的名字和术语。纠错模型会参考它们，也不会把它们改成别的词。", "Names and terms you say often. The correction model uses them and leaves them as they are."))
             }
-            HStack {
-                Button(t("全部忘掉…", "Forget all…")) { confirmClear = true }.disabled(learned.fixes.isEmpty)
-                Spacer()
-                Button(t("完成", "Done")) { dismiss() }.keyboardShortcut(.defaultAction)
+
+            Section {
+                if learned.fixes.isEmpty {
+                    Text(t("还没有学到什么。听写完在原处改错的词，这里就会出现。", "Nothing learned yet. Fix a word right after dictating it and it shows up here."))
+                        .foregroundStyle(.secondary)
+                } else {
+                    if learned.fixes.count > 8 {
+                        TextField(t("筛选", "Filter"), text: $filter, prompt: Text(t("找一个词", "Find a word")))
+                            .labelsHidden()
+                    }
+                    ForEach(shown) { fix in
+                        LearnedFixRow(fix: fix) { learned.delete(fix) }
+                    }
+                }
+            } header: {
+                HStack {
+                    Text(t("学到的改正（\(learned.fixes.count)）", "Learned fixes (\(learned.fixes.count))"))
+                    Spacer()
+                    if !learned.fixes.isEmpty {
+                        Button(t("全部忘掉…", "Forget all…")) { confirmClear = true }
+                            .buttonStyle(.link).font(.system(size: 11))
+                    }
+                }
+            } footer: {
+                note(t("改过两次（或在历史记录里改过一次）的会直接替换，标为「自动替换」；其余的只给纠错模型做参考。学错了的点 × 忘掉。", "Fixes made twice (or once in History) are applied directly; the rest are hints for the correction model. Click × to forget a wrong one."))
             }
         }
-        .padding(16)
-        .frame(width: 460)
+        .formStyle(.grouped)
+        .frame(height: 560)
         .confirmationDialog(t("忘掉全部 \(learned.fixes.count) 条改正？", "Forget all \(learned.fixes.count) learned fixes?"), isPresented: $confirmClear) {
             Button(t("全部忘掉", "Forget all"), role: .destructive) { learned.clear() }
         }
+    }
+
+    /// Applied ones first, then the most recent.
+    private var shown: [LearnedFix] {
+        let query = filter.trimmingCharacters(in: .whitespaces).lowercased()
+        return learned.fixes
+            .filter { query.isEmpty || $0.heard.lowercased().contains(query) || $0.meant.lowercased().contains(query) }
+            .sorted { ($0.confirmed ? 1 : 0, $0.lastSeen) > ($1.confirmed ? 1 : 0, $1.lastSeen) }
+    }
+
+    private func add() {
+        let new = Preferences.terms(in: newTerm).filter { term in !prefs.vocabularyTerms.contains { $0.lowercased() == term.lowercased() } }
+        if !new.isEmpty { prefs.vocabularyTerms += new }
+        newTerm = ""
+    }
+
+    private func note(_ text: String) -> some View {
+        Text(text).font(.system(size: 11)).foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct TermChip: View {
+    var text: String
+    var onRemove: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(text).font(.system(size: 12))
+            Button(action: onRemove) { Image(systemName: "xmark").font(.system(size: 8, weight: .bold)) }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .opacity(hovering ? 1 : 0.5)
+                .help(t("删掉这个词", "Remove this term"))
+        }
+        .padding(.leading, 9).padding(.trailing, 7).padding(.vertical, 4)
+        .background(Capsule().fill(Color.accentColor.opacity(0.12)))
+        .overlay(Capsule().strokeBorder(Color.accentColor.opacity(0.25), lineWidth: 0.5))
+        .onHover { hovering = $0 }
+    }
+}
+
+private struct LearnedFixRow: View {
+    let fix: LearnedFix
+    var onDelete: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(fix.heard).foregroundStyle(.secondary)
+            Image(systemName: "arrow.right").font(.system(size: 10)).foregroundStyle(.tertiary)
+            Text(fix.meant)
+            Spacer()
+            Text(t("\(fix.count) 次", "×\(fix.count)")).font(.system(size: 11).monospacedDigit()).foregroundStyle(.tertiary)
+            Text(fix.confirmed ? t("自动替换", "applied") : t("提示", "hint"))
+                .font(.system(size: 11))
+                .padding(.horizontal, 6).padding(.vertical, 1)
+                .background(Capsule().fill(fix.confirmed ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.06)))
+                .foregroundStyle(fix.confirmed ? Color.accentColor : Color.secondary)
+            Button(action: onDelete) { Image(systemName: "xmark.circle.fill") }
+                .buttonStyle(.borderless).foregroundStyle(.tertiary)
+                .help(t("忘掉这条", "Forget this one"))
+        }
+    }
+}
+
+/// Lays its children out in rows, wrapping like words.
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let rows = rows(width: proposal.width ?? .infinity, subviews)
+        let height = rows.map(\.height).reduce(0, +) + spacing * CGFloat(max(rows.count - 1, 0))
+        return CGSize(width: proposal.width ?? rows.map(\.width).max() ?? 0, height: height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var y = bounds.minY
+        for row in rows(width: bounds.width, subviews) {
+            var x = bounds.minX
+            for i in row.items {
+                let size = subviews[i].sizeThatFits(.unspecified)
+                subviews[i].place(at: CGPoint(x: x, y: y + (row.height - size.height) / 2), proposal: ProposedViewSize(size))
+                x += size.width + spacing
+            }
+            y += row.height + spacing
+        }
+    }
+
+    private func rows(width: CGFloat, _ subviews: Subviews) -> [(items: [Int], width: CGFloat, height: CGFloat)] {
+        var rows: [(items: [Int], width: CGFloat, height: CGFloat)] = []
+        for (i, view) in subviews.enumerated() {
+            let size = view.sizeThatFits(.unspecified)
+            if let last = rows.last, last.width + spacing + size.width <= width {
+                rows[rows.count - 1].items.append(i)
+                rows[rows.count - 1].width += spacing + size.width
+                rows[rows.count - 1].height = max(last.height, size.height)
+            } else {
+                rows.append(([i], size.width, size.height))
+            }
+        }
+        return rows
     }
 }
 

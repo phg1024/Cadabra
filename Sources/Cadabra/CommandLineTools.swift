@@ -150,6 +150,9 @@ enum CommandLineTools {
         render(SettingsView().environmentObject(settingsModel).environmentObject(settingsModel.prefs).environmentObject(history)
                .background(Color(nsColor: .windowBackgroundColor)),
                to: dir.appendingPathComponent("settings.png"), scheme: .light)
+        render(VocabularySettings().environmentObject(settingsModel.prefs).frame(width: 520)
+               .background(Color(nsColor: .windowBackgroundColor)),
+               to: dir.appendingPathComponent("vocabulary.png"), scheme: .light)
         render(AboutSettings().environmentObject(settingsModel).environmentObject(history).frame(width: 520)
                .background(Color(nsColor: .windowBackgroundColor)),
                to: dir.appendingPathComponent("about.png"), scheme: .light)

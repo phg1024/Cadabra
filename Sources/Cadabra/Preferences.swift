@@ -158,6 +158,17 @@ final class Preferences: ObservableObject {
     @Published var microphone: String { didSet { defaults.set(microphone, forKey: "microphone") } }
     /// Names and terms the user says often, for the corrector.
     @Published var vocabulary: String { didSet { defaults.set(vocabulary, forKey: "vocabulary") } }
+
+    /// The vocabulary one term at a time; it is kept as text separated by commas.
+    var vocabularyTerms: [String] {
+        get { Self.terms(in: vocabulary) }
+        set { vocabulary = newValue.joined(separator: ", ") }
+    }
+
+    static func terms(in vocabulary: String) -> [String] {
+        vocabulary.split(whereSeparator: { ",，、;；\n".contains($0) })
+            .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+    }
     @Published var correction: Bool { didSet { defaults.set(correction, forKey: "correction") } }
     @Published var correctionModel: CorrectionModel { didSet { defaults.set(correctionModel.rawValue, forKey: "correctionModel") } }
     @Published var autoPaste: Bool { didSet { defaults.set(autoPaste, forKey: "autoPaste") } }
