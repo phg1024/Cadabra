@@ -71,6 +71,7 @@ final class AppModel: ObservableObject {
         if accessibilityGranted { hotkeyActive = hotkeys.start() }
 
         prefs.$hotkey.dropFirst().sink { [weak self] key in self?.hotkeys.hotkey = key }.store(in: &subscriptions)
+        prefs.$checkUpdatesWeekly.sink { UpdateChecker.shared.scheduleWeekly($0) }.store(in: &subscriptions)
         prefs.$language.dropFirst().removeDuplicates().sink { [weak self] _ in
             DispatchQueue.main.async { self?.loadModel() }   // after the new value is stored
         }.store(in: &subscriptions)

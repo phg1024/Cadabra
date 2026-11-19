@@ -305,6 +305,8 @@ enum Links {
 struct AboutSettings: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var history: HistoryStore
+    @EnvironmentObject var prefs: Preferences
+    @ObservedObject private var updates = UpdateChecker.shared
 
     var body: some View {
         VStack(spacing: 14) {
@@ -330,6 +332,7 @@ struct AboutSettings: View {
                 }
             }
             .font(.system(size: 12))
+            updateRow
             HStack(spacing: 10) {
                 Link(destination: Links.repository) {
                     Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
@@ -354,7 +357,35 @@ struct AboutSettings: View {
         }
         .padding(28)
         .frame(maxWidth: .infinity)
-        .frame(height: 440)
+        .frame(height: 500)
+    }
+
+    private var updateRow: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 10) {
+                switch updates.state {
+                case .checking:
+                    ProgressView().controlSize(.small)
+                    Text(t("正在检查…", "Checking…")).foregroundStyle(.secondary)
+                case .available(let release):
+                    Text(t("有新版本 \(release.version)", "Version \(release.version) is available"))
+                    Link(t("下载", "Download"), destination: release.page).buttonStyle(.borderedProminent).controlSize(.small)
+                default:
+                    Button(t("检查更新", "Check for Updates")) { Task { await updates.check() } }.controlSize(.small)
+                    if updates.state == .upToDate {
+                        Label(t("已是最新版本", "You're up to date"), systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                    } else if case .failed(let message) = updates.state {
+                        Text(message).foregroundStyle(.orange)
+                    }
+                }
+            }
+            .font(.system(size: 12))
+            Toggle(t("每周自动检查一次", "Check automatically once a week"), isOn: $prefs.checkUpdatesWeekly)
+                .toggleStyle(.checkbox)
+                .font(.system(size: 11))
+                .help(t("关着的时候，只有点「检查更新」才会访问 GitHub。", "While off, the app only contacts GitHub when you click Check for Updates."))
+        }
     }
 
     private var modelText: String {

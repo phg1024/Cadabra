@@ -182,6 +182,9 @@ final class Preferences: ObservableObject {
     /// Keep each recording with its final text, for fine-tuning the speech model.
     @Published var collectTraining: Bool { didSet { defaults.set(collectTraining, forKey: "collectTraining") } }
     @Published var onboarded: Bool { didSet { defaults.set(onboarded, forKey: "onboarded") } }
+    /// Look for a new release once a week. Off unless the user turns it on: otherwise the app only asks
+    /// GitHub when they click Check for Updates.
+    @Published var checkUpdatesWeekly: Bool { didSet { defaults.set(checkUpdatesWeekly, forKey: "checkUpdatesWeekly") } }
     /// A `Theme` id.
     @Published var theme: String { didSet { defaults.set(theme, forKey: "theme") } }
     @Published var uiLanguage: UILanguage {
@@ -233,6 +236,7 @@ final class Preferences: ObservableObject {
         collectTraining = defaults.bool(forKey: "collectTraining")
         onboarded = defaults.bool(forKey: "onboarded")
         theme = defaults.string(forKey: "theme") ?? Theme.cadabra.id
+        checkUpdatesWeekly = defaults.bool(forKey: "checkUpdatesWeekly")
         uiLanguage = UILanguage(rawValue: defaults.string(forKey: "uiLanguage") ?? "") ?? .system
     }
 }

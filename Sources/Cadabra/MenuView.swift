@@ -7,10 +7,12 @@ struct MenuView: View {
     @Environment(\.openSettings) private var openSettings
     @Environment(\.openWindow) private var openWindow
     @Environment(\.theme) private var theme
+    @ObservedObject private var updates = UpdateChecker.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
+            if let release = updates.notice { updateBanner(release) }
             RecordButton()
             if model.needsPermissions { permissionBanner }
             recent
@@ -49,6 +51,20 @@ struct MenuView: View {
         if model.isRecording { return .red }
         if model.pending > 0 || model.modelState == .loading { return .yellow }
         return statusIsWarning ? .orange : .green
+    }
+
+    private func updateBanner(_ release: UpdateChecker.Release) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.down.circle.fill").foregroundStyle(.tint)
+            Text(t("新版本 \(release.version) 可以下载了", "Version \(release.version) is available")).font(.system(size: 12))
+            Spacer()
+            Link(t("查看", "View"), destination: release.page).font(.system(size: 12))
+            Button { updates.dismissNotice() } label: { Image(systemName: "xmark").font(.system(size: 9, weight: .bold)) }
+                .buttonStyle(.borderless).foregroundStyle(.secondary)
+                .help(t("这个版本不再提醒", "Don't remind me about this version"))
+        }
+        .padding(.horizontal, 10).padding(.vertical, 7)
+        .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(Color.primary.opacity(0.06)))
     }
 
     private var permissionBanner: some View {
