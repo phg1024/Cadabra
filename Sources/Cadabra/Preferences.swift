@@ -191,6 +191,8 @@ final class Preferences: ObservableObject {
     @Published var agentName: String { didSet { defaults.set(agentName, forKey: "agentName") } }
     /// Read the agent's replies aloud (its POST /speech).
     @Published var agentSpeaks: Bool { didSet { defaults.set(agentSpeaks, forKey: "agentSpeaks") } }
+    /// A `VisualPlugin` for the agent's panel (its folder name); empty for none.
+    @Published var agentPlugin: String { didSet { defaults.set(agentPlugin, forKey: "agentPlugin") } }
     @Published var trigger: TriggerMode { didSet { defaults.set(trigger.rawValue, forKey: "trigger") } }
     @Published var language: Language { didSet { defaults.set(language.rawValue, forKey: "language") } }
     /// An input device's UID, or empty for automatic (the default input, but not a Bluetooth headset's).
@@ -276,6 +278,7 @@ final class Preferences: ObservableObject {
         agentURL = defaults.string(forKey: "agentURL") ?? ""
         agentName = defaults.string(forKey: "agentName") ?? "Agent"
         agentSpeaks = defaults.bool(forKey: "agentSpeaks")
+        agentPlugin = defaults.string(forKey: "agentPlugin") ?? ""
         trigger = TriggerMode(rawValue: defaults.string(forKey: "trigger") ?? "") ?? .auto
         language = Language(rawValue: defaults.string(forKey: "language") ?? "") ?? .auto
         microphone = defaults.string(forKey: "microphone") ?? ""

@@ -4,7 +4,8 @@ import Testing
 
 /// Answers requests to agent.test from a handler, so the agent's requests can be checked without a network.
 final class StubProtocol: URLProtocol {
-    nonisolated(unsafe) static var handler: ((URLRequest, Data) -> (Int, [String: Any]))?
+    /// The body is JSON for a dictionary, or sent as it is (newline-delimited JSON) for a string.
+    nonisolated(unsafe) static var handler: ((URLRequest, Data) -> (Int, Any))?
 
     override class func canInit(with request: URLRequest) -> Bool { request.url?.host == "agent.test" }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -16,10 +17,12 @@ final class StubProtocol: URLProtocol {
             while stream.hasBytesAvailable { let n = stream.read(&buffer, maxLength: buffer.count); if n <= 0 { break }; body.append(buffer, count: n) }
             stream.close()
         }
-        let (status, json) = Self.handler?(request, body) ?? (500, [:])
-        let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
+        let (status, answer) = Self.handler?(request, body) ?? (500, [String: Any]())
+        let streamed = answer is String
+        let response = HTTPURLResponse(url: request.url!, statusCode: status, httpVersion: nil,
+                                       headerFields: ["Content-Type": streamed ? "application/x-ndjson; charset=utf-8" : "application/json"])!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: try! JSONSerialization.data(withJSONObject: json))
+        client?.urlProtocol(self, didLoad: streamed ? Data((answer as! String).utf8) : try! JSONSerialization.data(withJSONObject: answer))
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
@@ -67,5 +70,78 @@ struct AgentTests {
         #expect(chunks.count == 2)
         #expect(chunks.allSatisfy { !$0.isEmpty })
         #expect(Speaker.chunks("It's closed. Want me to open it?") == ["It's closed.Want me to open it?"])
+    }
+
+    @Test func aStreamingAgentSaysWhatItIsDoing() async throws {
+        StubProtocol.handler = { request, _ in
+            #expect(request.value(forHTTPHeaderField: "Accept")?.contains("application/x-ndjson") == true)
+            return (200, """
+                {"type": "activity", "state": "thinking"}
+                {"type": "activity", "state": "researching"}
+                {"type": "result", "text": "明天天气", "reply": "明天晴。", "conversation_id": "c-x"}
+
+                """)
+        }
+        let seen = Seen()
+        let (reply, id) = try await Agent.ask("明天天气", url: URL(string: "http://agent.test/text")!, conversation: nil) { seen.add($0) }
+        #expect(reply == "明天晴。")
+        #expect(id == "c-x")
+        #expect(seen.states == ["thinking", "researching"])
+    }
+
+    @Test func aStreamedErrorIsAnError() async {
+        StubProtocol.handler = { _, _ in (200, "{\"type\": \"activity\", \"state\": \"thinking\"}\n{\"type\": \"error\", \"error\": \"回复超时了\"}\n") }
+        do {
+            _ = try await Agent.ask("你好", url: URL(string: "http://agent.test/text")!, conversation: nil)
+            Issue.record("no error")
+        } catch {
+            #expect(error.localizedDescription == "回复超时了")
+        }
+    }
+}
+
+final class Seen: @unchecked Sendable {
+    private let lock = NSLock()
+    private var list: [String] = []
+    func add(_ state: String) { lock.withLock { list.append(state) } }
+    var states: [String] { lock.withLock { list } }
+}
+
+struct VisualPluginTests {
+    func folder(_ manifest: String?, entry: String = "index.html") throws -> URL {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("plugin-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        if let manifest { try Data(manifest.utf8).write(to: dir.appendingPathComponent("plugin.json")) }
+        try Data("<html></html>".utf8).write(to: dir.appendingPathComponent(entry))
+        return dir
+    }
+
+    @Test func readsTheManifest() throws {
+        let dir = try folder(##"{"name": "Echo", "height": 150, "background": "#0b141c", "foreground": "#e6f1f5"}"##)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let plugin = try #require(VisualPlugin.load(dir))
+        #expect(plugin.name == "Echo")
+        #expect(plugin.height == 150)
+        #expect(plugin.background != nil && plugin.foreground != nil)
+        #expect(plugin.entry.lastPathComponent == "index.html")
+    }
+
+    @Test func thePageMustBeInsideTheFolder() throws {
+        let dir = try folder(#"{"name": "Sneaky", "entry": "../../etc/hosts"}"#)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        #expect(VisualPlugin.load(dir) == nil)
+        let none = try folder(nil)
+        defer { try? FileManager.default.removeItem(at: none) }
+        #expect(VisualPlugin.load(none) == nil)   // no plugin.json
+    }
+
+    @Test @MainActor func theEventSaysWhatIsHappening() throws {
+        let event = VisualPlugin.event(phase: .waiting, activity: "coding", speaking: false, level: 1.7)
+        let object = try #require(try JSONSerialization.jsonObject(with: Data(event.utf8)) as? [String: Any])
+        #expect(object["phase"] as? String == "waiting")
+        #expect(object["activity"] as? String == "coding")
+        #expect(object["level"] as? Double == 1)
+        let quiet = VisualPlugin.event(phase: .listening, activity: nil, speaking: false, level: 0.25)
+        #expect(quiet.contains("\"activity\":null"))
     }
 }

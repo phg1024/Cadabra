@@ -524,6 +524,14 @@ struct AgentSettings: View {
                     if let status { Text(status).font(.system(size: 12)).foregroundStyle(.secondary) }
                 }
                 Toggle(t("朗读回复", "Read replies aloud"), isOn: $prefs.agentSpeaks)
+                Picker(t("外观插件", "Look"), selection: $prefs.agentPlugin) {
+                    Text(t("无", "None")).tag("")
+                    ForEach(VisualPlugin.installed()) { Text($0.name).tag($0.id) }
+                }
+                Button(t("打开插件文件夹", "Open the plugins folder")) {
+                    try? FileManager.default.createDirectory(at: VisualPlugin.directory, withIntermediateDirectories: true)
+                    NSWorkspace.shared.open(VisualPlugin.directory)
+                }
             } footer: {
                 Text(t("按住 Agent 键说话，松开后识别出的文字先显示在一个小窗口里：可以改，按回车才发出去，按 esc 取消。回复显示在同一个窗口里。文字会发到这个地址（比如 POST /text，朗读用 POST /speech），对方能做什么取决于那边的 agent。口令存在钥匙串里。",
                        "Hold the agent key and talk; when you let go, the words appear in a small window where you can edit them. Nothing is sent until you press Return; esc cancels. The reply shows in the same window. The words go to this address (for example POST /text, and POST /speech for reading aloud); what happens then is up to the agent there. The token is kept in the keychain."))

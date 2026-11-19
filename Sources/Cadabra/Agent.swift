@@ -22,6 +22,8 @@ final class Agent: ObservableObject {
     @Published var text = ""
     @Published private(set) var phase = Phase.confirm
     @Published private(set) var speaking = false
+    /// What the agent says it is doing while the answer comes (for example thinking, researching, calculating, coding).
+    @Published private(set) var activity: String?
 
     private var panel: NSPanel?
     private var anchor: NSRect?
@@ -76,11 +78,15 @@ final class Agent: ObservableObject {
             return
         }
         phase = .waiting
+        activity = nil
         if let last = conversation?.last, Date().timeIntervalSince(last) > Self.followUp { conversation = nil }
         let id = conversation?.id
         request = Task {
             do {
-                let (reply, newID) = try await Self.ask(words, url: url, conversation: id)
+                let (reply, newID) = try await Self.ask(words, url: url, conversation: id) { [weak self] state in
+                    Task { @MainActor in if self?.phase == .waiting { self?.activity = state } }
+                }
+                activity = nil
                 guard !Task.isCancelled else { return }
                 conversation = newID.map { ($0, Date()) } ?? conversation
                 phase = .reply(reply)
@@ -93,6 +99,12 @@ final class Agent: ObservableObject {
                 DispatchQueue.main.async { [weak self] in self?.place(self?.panel) }
             }
         }
+    }
+
+    /// The plugin's event: see `VisualPlugin.event`.
+    var pluginEvent: String {
+        let level: Float = phase == .listening ? (AppModel.shared.levels.last ?? 0) : (speaking ? speaker.level : 0)
+        return VisualPlugin.event(phase: phase, activity: activity, speaking: speaking, level: level)
     }
 
     func close() {
@@ -190,15 +202,32 @@ final class Agent: ObservableObject {
         return request
     }
 
-    /// The reply, and the conversation it belongs to.
-    nonisolated static func ask(_ words: String, url: URL, conversation: String?) async throws -> (String, String?) {
+    /// The reply, and the conversation it belongs to. An agent that streams (newline-delimited JSON, when
+    /// asked) reports what it is doing along the way through `onActivity`.
+    nonisolated static func ask(_ words: String, url: URL, conversation: String?,
+                                onActivity: @escaping @Sendable (String) -> Void = { _ in }) async throws -> (String, String?) {
         var request = authorized(url, timeout: 180)
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/x-ndjson, application/json", forHTTPHeaderField: "Accept")
         if let conversation { request.setValue(conversation, forHTTPHeaderField: "X-Conversation-Id") }
         request.httpBody = try JSONSerialization.data(withJSONObject: ["text": words])
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        var status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        var object: [String: Any] = [:]
+        if (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Type")?.contains("ndjson") == true {
+            for try await line in bytes.lines {
+                guard let event = (try? JSONSerialization.jsonObject(with: Data(line.utf8))) as? [String: Any] else { continue }
+                switch event["type"] as? String {
+                case "activity": if let state = event["state"] as? String { onActivity(state) }
+                case "error": object = event; status = 500
+                default: object = event   // "result"
+                }
+            }
+        } else {
+            var data = Data()
+            for try await byte in bytes { data.append(byte) }
+            object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        }
         guard status == 200 else {
             log.error("agent answered \(status, privacy: .public)")
             throw Failure(object["error"] as? String ?? t("Agent 返回了错误（\(status)）", "The agent returned an error (\(status))"))
@@ -284,8 +313,16 @@ final class Speaker: NSObject, AVAudioPlayerDelegate {
             guard let data, let player = try? AVAudioPlayer(data: data) else { return playNext(current) }
             self.player = player
             player.delegate = self
+            player.isMeteringEnabled = true
             player.play()
         }
+    }
+
+    /// How loud the reply is right now, 0…1, for a plugin to move with.
+    var level: Float {
+        guard let player, player.isPlaying else { return 0 }
+        player.updateMeters()
+        return max(0, min(1, (player.averagePower(forChannel: 0) + 50) / 50))
     }
 
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
@@ -341,10 +378,19 @@ struct AgentView: View {
     @EnvironmentObject var prefs: Preferences
     @EnvironmentObject var model: AppModel
     @Environment(\.theme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
     @FocusState private var editing: Bool
+
+    private var plugin: VisualPlugin? { VisualPlugin.named(prefs.agentPlugin) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            if let plugin {
+                PluginView(plugin: plugin) { agent.pluginEvent }
+                    .frame(height: plugin.height)
+                    .padding(.horizontal, -14).padding(.top, -14)   // edge to edge at the top
+                    .clipShape(UnevenRoundedRectangle(topLeadingRadius: 14, topTrailingRadius: 14, style: .continuous))
+            }
             HStack(spacing: 6) {
                 Image(systemName: "sparkles").foregroundStyle(.tint)
                 Text(prefs.agentName).font(.system(size: 13, weight: .semibold))
@@ -406,7 +452,9 @@ struct AgentView: View {
         }
         .padding(14)
         .frame(width: 440)
-        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(theme.background ?? Color(nsColor: .windowBackgroundColor)))
+        .foregroundStyle(plugin?.foreground.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
+        .environment(\.colorScheme, plugin?.background != nil ? .dark : colorScheme)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(plugin?.background ?? theme.background ?? Color(nsColor: .windowBackgroundColor)))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.primary.opacity(0.12)))
         .focusable(agent.phase != .confirm && agent.phase != .listening)
         .onKeyPress(.escape) { agent.close(); return .handled }
