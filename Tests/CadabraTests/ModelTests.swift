@@ -23,6 +23,24 @@ struct SpeechModelTests {
         #expect(transcript.text == Self.expected[language])
     }
 
+    /// A long recording is read piece by piece: in one go, 30 s of these samples came back as four words.
+    @Test(.enabled(if: modelDirectory != nil))
+    func keepsEveryWordOfALongRecording() async throws {
+        let engine = ASREngine()
+        try await withCheckedThrowingContinuation { (done: CheckedContinuation<Void, Error>) in
+            engine.load(modelDirectory: Self.modelDirectory, language: .auto) { error in
+                if let error { done.resume(throwing: error) } else { done.resume() }
+            }
+        }
+        let zh = try AudioFile.load16kMono(Self.modelDirectory!.appendingPathComponent("test_wavs/zh.wav"))
+        let en = try AudioFile.load16kMono(Self.modelDirectory!.appendingPathComponent("test_wavs/en.wav"))
+        let pause = [Float](repeating: 0, count: ASREngine.sampleRate * 2 / 5)
+        let once = zh + pause + en + pause
+        let text = try await engine.transcribe(once + once + once + once).text   // about 52 s
+        #expect(text.components(separatedBy: "9点").count - 1 == 4)
+        #expect(text.components(separatedBy: "presented him").count - 1 == 4)
+    }
+
     /// What this model gives (the same as sherpa-onnx's own examples).
     static let expected = [
         "zh": "开饭时间早上9点至下午5点。",

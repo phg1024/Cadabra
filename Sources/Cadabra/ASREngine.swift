@@ -82,7 +82,58 @@ final class ASREngine: @unchecked Sendable {
         }
     }
 
+    /// SenseVoice reads a sentence or two at a time: given a long recording in one go it drops whole
+    /// stretches (30 s of speech came back as four words). So longer audio is cut at its quietest moments
+    /// into pieces of at most `maxPiece` seconds, read one by one and joined. Each cut depends only on the
+    /// audio before it, so while a recording grows, the pieces already cut (and their words) stay put.
+    static let maxPiece: Double = 12
+    static let minPiece: Double = 6
+
     private func decode(_ samples: [Float], hotwords: [String]) throws -> Transcript {
+        let pieces = Self.pieces(samples.count) { samples[$0] }
+        guard pieces.count > 1 else { return try decodePiece(samples, hotwords: hotwords) }
+        let start = Date()
+        var text = ""
+        for piece in pieces {
+            let part = try decodePiece(Array(samples[piece]), hotwords: hotwords).text
+            text = Self.join(text, part)
+        }
+        return Transcript(text: text, duration: Double(samples.count) / Double(Self.sampleRate),
+                          latency: Date().timeIntervalSince(start))
+    }
+
+    /// Where to cut `count` samples: at the quietest 20 ms (smoothed over 100 ms) between `minPiece` and
+    /// `maxPiece` seconds into what is left, again and again.
+    static func pieces(_ count: Int, sample: (Int) -> Float) -> [Range<Int>] {
+        let rate = Double(sampleRate), frame = sampleRate / 50
+        let maxLength = Int(maxPiece * rate), minLength = Int(minPiece * rate)
+        var ranges: [Range<Int>] = []
+        var start = 0
+        while count - start > maxLength {
+            var best = start + maxLength, bestEnergy = Float.infinity
+            var at = start + minLength
+            while at + frame * 5 <= start + maxLength {
+                var energy: Float = 0
+                for i in stride(from: at, to: at + frame * 5, by: 4) { let v = sample(i); energy += v * v }
+                if energy < bestEnergy { bestEnergy = energy; best = at + frame * 5 / 2 }
+                at += frame
+            }
+            ranges.append(start..<best)
+            start = best
+        }
+        ranges.append(start..<count)
+        return ranges
+    }
+
+    /// Two pieces' text: a space between them only where English goes on (a Latin letter or digit after a
+    /// Latin letter, digit or ASCII punctuation); Chinese and the like join directly.
+    static func join(_ a: String, _ b: String) -> String {
+        guard let last = a.last, let first = b.first else { return a + b }
+        let latin: (Character) -> Bool = { $0.isASCII && ($0.isLetter || $0.isNumber) }
+        return latin(first) && (latin(last) || ".,!?;:".contains(last)) ? a + " " + b : a + b
+    }
+
+    private func decodePiece(_ samples: [Float], hotwords: [String]) throws -> Transcript {
         if let net { return try decode(samples, with: net, hotwords: hotwords) }
         guard let recognizer else { throw loadError ?? ASRError.loadFailed }
         let start = Date()

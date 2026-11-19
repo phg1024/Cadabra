@@ -43,3 +43,32 @@ struct AudioProcessingTests {
         #expect(best < 1e-4, "mean squared error \(best)")
     }
 }
+
+struct PieceTests {
+    /// Speech with a pause at 9 s and another at 19 s: the cuts land in the pauses, every piece at most 12 s.
+    @Test func cutsAtThePauses() {
+        let rate = ASREngine.sampleRate
+        let samples = (0..<(25 * rate)).map { i -> Float in
+            let t = Double(i) / Double(rate)
+            let quiet = (8.8..<9.2).contains(t) || (18.8..<19.2).contains(t)
+            return quiet ? 0 : Float(sin(Double(i) * 0.05)) * 0.3
+        }
+        let pieces = ASREngine.pieces(samples.count) { samples[$0] }
+        #expect(pieces.count == 3)
+        #expect(pieces.allSatisfy { $0.count <= Int(ASREngine.maxPiece) * rate })
+        #expect(abs(Double(pieces[0].upperBound) / Double(rate) - 9) < 0.25)
+        #expect(abs(Double(pieces[1].upperBound) / Double(rate) - 19) < 0.25)
+        #expect(pieces.last?.upperBound == samples.count)
+    }
+
+    @Test func shortAudioIsOnePiece() {
+        #expect(ASREngine.pieces(5 * ASREngine.sampleRate) { _ in 0.1 }.count == 1)
+    }
+
+    @Test func joinsPiecesLikeText() {
+        #expect(ASREngine.join("开饭时间。", "下午五点") == "开饭时间。下午五点")
+        #expect(ASREngine.join("for the boy.", "And then") == "for the boy. And then")
+        #expect(ASREngine.join("pieces of", "gold") == "pieces of gold")
+        #expect(ASREngine.join("of good", "开饭") == "of good开饭")
+    }
+}
