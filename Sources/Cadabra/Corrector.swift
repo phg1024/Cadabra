@@ -353,6 +353,9 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
         func han(_ s: String) -> Bool { s.unicodeScalars.contains { $0.properties.isIdeographic } }
         func latin(_ s: String) -> Bool { s.contains { $0.isASCII && $0.isLetter } }
         if latin(original) && !han(original) && han(corrected) { return original }
+        // Nothing was there: words put in are the model adding content (often copied from the text around
+        // the cursor it was shown), not a fix. Punctuation may be added.
+        if original.allSatisfy(\.isWhitespace), corrected.contains(where: { $0.isLetter || $0.isNumber }) { return original }
         // A swap that doesn't sound alike is the model putting in a word it likes (often one of the user's
         // terms: 拳头 → 苹果, 远端 → dwin), not fixing a mishearing. Numbers and case go through.
         let (a, b) = (Phonetic.key(original), Phonetic.key(corrected))

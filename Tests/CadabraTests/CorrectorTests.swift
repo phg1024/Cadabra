@@ -9,6 +9,13 @@ struct CorrectorTests {
         #expect(Corrector.vet("dation", "dictation") == "dictation")
     }
 
+    @Test func wordsAddedOutOfNothingAreUndone() {
+        #expect(Corrector.vet("", "上一句话。") == "")
+        #expect(Corrector.vet("", "，") == "，")   // punctuation may be added
+        let text = "这个功能下周再上线，先把文档写完。"
+        #expect(Corrector.answer("上一句话。" + text, for: text) == text)   // the text before the cursor, copied in
+    }
+
     @Test func vetUndoesSwapsThatDontSoundAlike() {
         #expect(Corrector.vet("拳头", "苹果") == "拳头")        // a term the model likes, not a mishearing
         #expect(Corrector.vet("engine", "model") == "engine")
@@ -43,9 +50,10 @@ struct CorrectorTests {
         #expect(Corrector.answer("<text>火山喷发了吗</text>", for: "火山Eruption了吗") == "火山Eruption了吗")
     }
 
-    @Test func answerRejectsReplies() {
+    @Test func answerDropsWhatTheModelSaysAroundIt() {
+        // The chatter is words added out of nothing, so it goes; the fix inside stays.
         #expect(Corrector.answer("好的，以下是修改后的文字：改完记得push到远端。如果还有其他需要请告诉我。",
-                                 for: "改完记得不许到远端。") == nil)
+                                 for: "改完记得不许到远端。") == "改完记得push到远端。")
         #expect(Corrector.answer("", for: "改完记得不许到远端。") == nil)
     }
 
