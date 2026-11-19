@@ -17,7 +17,7 @@ The same as a page: [visual-language.html](https://phg1024.github.io/Cadabra/vis
 | Indigo | `#546BFA` | Start of the brand gradient; middle of the mark's tile |
 | Violet | `#9E52F2` | End of the brand gradient |
 | Mark gradient | `#47A3FB → #546BFA → #9E52F2`, top-left to bottom-right | The app icon tile, the favicon, the site's logo glyph |
-| Brand gradient | `#546BFA → #9E52F2`, top-left to bottom-right | Primary buttons, the headline accent, the recording bar |
+| Brand gradient | `#546BFA → #9E52F2`, top-left to bottom-right | Primary buttons, the headline accent |
 | Accent | `#6A5CF5` | Links, focus rings, small UI accents on light backgrounds |
 | Ink | `#17142B` | Text on light backgrounds |
 
@@ -48,16 +48,28 @@ lighter: accent `#9B8CFF`, gold `#F5C451`.
 
 ## The mark
 
-Five white rounded sound bars (short, medium, tall, medium, short), a little left of center; a straight
-**Wand black** wand from the lower right with a **Magic gold** star on its tip; a few gold stars and
+Six slim white sound bars of uneven height, the wave of the first Cadabra mark, centered; a straight
+**Wand black** wand from the lower right, which may cross the bars a little, with a **Magic gold** star on its tip; a few gold stars and
 dots around. On the **mark gradient** tile.
 
 The same mark everywhere, at every size: the app icon, the menu bar, the mark inside the app, the
-favicon and the site's nav. It keeps its own colors whatever the app's theme, and there is no
-simplified version (at menu-bar size the wand is kept at least 1.3 points wide so it still reads).
+favicon and the site's nav. There is no simplified version (at menu-bar size the wand is kept at least
+1.3 points wide so it still reads). The app icon, the menu bar and the Cadabra theme use the mark
+gradient; inside the app, each of the other themes shows the same mark on its own accent colors.
 
 The source of truth is code: `MagicMark` in `Sources/Cadabra/Components.swift` (`AppIconArt` renders
 the app icon, `AppGlyph` the mark in the app and the menu bar). The site's SVGs copy its geometry.
+
+## The recording bar
+
+The bar at the bottom of the screen while you talk. In the Cadabra theme it follows the system:
+
+- **Dark mode**: a dark bar (Ink at 92%), the live wave shading from Sky through Indigo to Violet bar by
+  bar, white text, a gold star in place of the red dot.
+- **Light mode**: the stage (the pale mark gradient) as the bar, a Clay purple wave, Ink text, the gold
+  star.
+
+The other themes keep their own bar. `Theme.forBar(dark:)` in `Sources/Cadabra/Theme.swift`.
 
 ## Illustrations
 
