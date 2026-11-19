@@ -7,7 +7,7 @@ enum Brand {
         startPoint: .topLeading, endPoint: .bottomTrailing)
 }
 
-/// The mark inside the app icon, drawn on a unit tile: five sound bars, a magic wand with a star on its tip,
+/// The mark inside the app icon, drawn on a unit tile: six sound bars, a magic wand with a star on its tip,
 /// and a few stars (see docs/visual-language.md). The same at every size, down to the menu bar.
 struct MagicMark: View {
     var bars: Color = .white
@@ -20,11 +20,12 @@ struct MagicMark: View {
         Canvas { context, size in
             let s = size.width
             func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: x * s, y: y * s) }
-            // The bars, a little left of center to leave room for the wand.
-            let heights: [CGFloat] = [0.18, 0.33, 0.55, 0.33, 0.18]
-            let width: CGFloat = 0.078
-            let xs: [CGFloat] = [0.21, 0.338, 0.466, 0.594, 0.722]
-            let mid: CGFloat = 0.505
+            // The bars, centered.
+            // Six slim bars of uneven height, the wave of the first Cadabra mark.
+            let heights: [CGFloat] = [0.132, 0.345, 0.55, 0.287, 0.434, 0.184]
+            let width: CGFloat = 0.05
+            let xs: [CGFloat] = [0.283, 0.374, 0.458, 0.541, 0.629, 0.716]  // centered; the wand may cross them
+            let mid: CGFloat = 0.5
             for (x, h) in zip(xs, heights) {
                 let rect = CGRect(x: (x - width / 2) * s, y: (mid - h / 2) * s, width: width * s, height: h * s)
                 context.fill(Path(roundedRect: rect, cornerRadius: width * s / 2), with: .color(bars))
@@ -60,12 +61,16 @@ struct MagicMark: View {
 
 struct AppGlyph: View {
     var size: CGFloat
+    /// The theme's version of the mark; nil (the menu bar, the Cadabra theme) is the brand's own.
+    var theme: Theme?
+    @Environment(\.theme) private var environmentTheme
 
     var body: some View {
-        // The logo keeps its own colors whatever the theme.
+        let theme = self.theme ?? environmentTheme
+        let brand = theme.id == Theme.cadabra.id
         RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
-            .fill(Brand.gradient)
-            .overlay(MagicMark())
+            .fill(brand ? Brand.gradient : theme.gradient)
+            .overlay(MagicMark(bars: brand ? .white : theme.onAccent))
             .frame(width: size, height: size)
     }
 }

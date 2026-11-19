@@ -19,6 +19,8 @@ struct SettingsView: View {
 /// The record button and the recording bar in a theme, under the theme picker.
 private struct ThemePreview: View {
     var theme: Theme
+    @Environment(\.colorScheme) private var scheme
+    private var bar: Theme { theme.forBar(dark: scheme == .dark) }
     private let levels: [Float] = [0.2, 0.45, 0.8, 0.5, 0.95, 0.6, 0.3, 0.7, 0.9, 0.4, 0.25, 0.65, 0.85, 0.5, 0.3, 0.55]
 
     var body: some View {
@@ -33,14 +35,14 @@ private struct ThemePreview: View {
             .frame(height: 30)
             .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(theme.gradient))
             HStack(spacing: 8) {
-                PulsingDot(color: theme.dot).frame(width: 8, height: 8).scaleEffect(0.8)
-                Waveform(levels: levels, colors: theme.wave).frame(width: 70, height: 16)
-                Text("0:04").font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(theme.barText)
+                PulsingDot(color: bar.dot, star: bar.star).frame(width: 8, height: 8).scaleEffect(0.8)
+                Waveform(levels: levels, colors: bar.wave).frame(width: 70, height: 16)
+                Text("0:04").font(.system(size: 11, weight: .medium).monospacedDigit()).foregroundStyle(bar.barText)
             }
             .padding(.horizontal, 12)
             .frame(height: 30)
-            .background(Capsule().fill(theme.bar))
-            .overlay(Capsule().strokeBorder(theme.barText.opacity(0.14), lineWidth: 1))
+            .background(Capsule().fill(bar.barFill))
+            .overlay(Capsule().strokeBorder(bar.barText.opacity(0.14), lineWidth: 1))
             Spacer()
         }
         .padding(10)

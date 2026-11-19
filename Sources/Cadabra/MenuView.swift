@@ -193,7 +193,7 @@ struct MenuBarLabel: View {
 
     /// The logo in color, not a template, so the menu bar shows it as it is.
     @MainActor static let icon: NSImage = {
-        let renderer = ImageRenderer(content: AppGlyph(size: 18))
+        let renderer = ImageRenderer(content: AppGlyph(size: 18, theme: .cadabra))
         renderer.scale = 2
         let image = renderer.nsImage ?? NSImage(systemSymbolName: "waveform", accessibilityDescription: nil)!
         image.isTemplate = false

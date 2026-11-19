@@ -118,7 +118,9 @@ struct HUDView: View {
     @EnvironmentObject var prefs: Preferences
     /// For --snapshot: a theme other than the chosen one.
     var themeOverride: Theme?
-    private var theme: Theme { themeOverride ?? Theme.named(prefs.theme) }
+    /// The system's light or dark, before the bar sets its own below.
+    @Environment(\.colorScheme) private var systemScheme
+    private var theme: Theme { (themeOverride ?? Theme.named(prefs.theme)).forBar(dark: systemScheme == .dark) }
 
     var body: some View {
         VStack {
@@ -127,7 +129,7 @@ struct HUDView: View {
                 content
                     .padding(.horizontal, 18)
                     .frame(height: 46)
-                    .background(Capsule().fill(theme.bar))
+                    .background(Capsule().fill(theme.barFill))
                     .overlay(Capsule().strokeBorder(theme.barText.opacity(0.14), lineWidth: 1))
                     .shadow(color: .black.opacity(theme.barIsDark ? 0.35 : 0.2), radius: 14, y: 6)
                     .foregroundStyle(theme.barText)
@@ -149,7 +151,7 @@ struct HUDView: View {
             EmptyView()
         case .recording:
             HStack(spacing: 12) {
-                PulsingDot(color: theme.dot)
+                PulsingDot(color: theme.dot, star: theme.star)
                 Waveform(levels: model.levels, colors: theme.wave)
                     .frame(width: 120, height: 24)
                 ElapsedText(start: model.recordingStart)
@@ -217,11 +219,21 @@ struct HUDView: View {
 
 struct PulsingDot: View {
     var color: Color = .red
+    var star = false
 
     var body: some View {
-        Circle()
-            .fill(color)
-            .frame(width: 10, height: 10)
+        Group {
+            if star {
+                Canvas { context, size in
+                    MagicMark.star(&context, center: CGPoint(x: size.width / 2, y: size.height / 2 + 0.5), radius: size.width * 0.42)
+                }
+                .frame(width: 14, height: 14)
+            } else {
+                Circle()
+                    .fill(color)
+                    .frame(width: 10, height: 10)
+            }
+        }
             .phaseAnimator([1.0, 0.35]) { dot, phase in
                 dot.opacity(phase)
             } animation: { _ in .easeInOut(duration: 0.7) }

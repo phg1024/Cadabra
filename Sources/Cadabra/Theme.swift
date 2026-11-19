@@ -21,11 +21,48 @@ struct Theme: Identifiable, Hashable {
     var barText: Color = .white
     var wave: [Color] = [.white]
     var dot: Color = .red
+    /// Behind the recording bar instead of `bar`, as a gradient.
+    var barGradient: [Color]?
+    /// A gold star instead of the dot while recording.
+    var star = false
     var serif = false
 
     var title: String { t(zh, en) }
     var gradient: LinearGradient { LinearGradient(colors: accent, startPoint: .topLeading, endPoint: .bottomTrailing) }
     var barIsDark: Bool { NSColor(bar).usingColorSpace(.sRGB).map { $0.brightnessComponent < 0.5 } ?? true }
+    var barFill: AnyShapeStyle {
+        barGradient.map { AnyShapeStyle(LinearGradient(colors: $0, startPoint: .topLeading, endPoint: .bottomTrailing)) } ?? AnyShapeStyle(bar)
+    }
+
+    /// The recording bar. The Cadabra theme's follows the system (docs/visual-language.md): in dark mode a
+    /// dark bar with the wave in the mark's sky-to-violet, in light mode the pale stage with a clay purple
+    /// wave; a gold star either way. Other themes keep their own.
+    func forBar(dark: Bool) -> Theme {
+        guard id == Theme.cadabra.id else { return self }
+        var bar = self
+        bar.star = true
+        if dark {
+            bar.bar = Color(hex: 0x17142B).opacity(0.92)
+            bar.wave = Theme.ramp([0x47A3FB, 0x546BFA, 0x9E52F2], count: 28)  // one per bar: AppModel.levelCount
+        } else {
+            bar.bar = Color(hex: 0xD4DAFE)
+            bar.barGradient = [Color(hex: 0xD1E8FE), Color(hex: 0xD4DAFE), Color(hex: 0xE7D4FC)]
+            bar.barText = Color(hex: 0x17142B)
+            bar.wave = [Color(hex: 0x8B74E8)]
+        }
+        return bar
+    }
+
+    /// `count` colors evenly along the stops, so a waveform shades from the first to the last.
+    static func ramp(_ stops: [UInt32], count: Int) -> [Color] {
+        let rgb = stops.map { [Double($0 >> 16 & 0xFF), Double($0 >> 8 & 0xFF), Double($0 & 0xFF)] }
+        return (0..<count).map { i in
+            let t = Double(i) / Double(max(count - 1, 1)) * Double(rgb.count - 1)
+            let k = min(Int(t), rgb.count - 2), u = t - Double(k)
+            let c = (0..<3).map { rgb[k][$0] * (1 - u) + rgb[k + 1][$0] * u }
+            return Color(red: c[0] / 255, green: c[1] / 255, blue: c[2] / 255)
+        }
+    }
 
     static let cadabra = Theme(id: "cadabra", zh: "Cadabra（跟随系统）", en: "Cadabra (follows the system)",
                                accent: [Color(hex: 0x546BFA), Color(hex: 0x9E52F2)])

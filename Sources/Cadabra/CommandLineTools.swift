@@ -174,6 +174,8 @@ enum CommandLineTools {
             state.kind = kind
             let view = HUDView().environmentObject(state).environmentObject(model).environmentObject(model.prefs)
             render(view, to: dir.appendingPathComponent("hud-\(name).png"), scheme: .dark, transparent: true)
+            // The Cadabra theme's bar is light in light mode.
+            render(view, to: dir.appendingPathComponent("hud-\(name)-light.png"), scheme: .light, transparent: true)
         }
 
         let settingsModel = AppModel.preview(history: history)
