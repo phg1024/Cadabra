@@ -152,3 +152,5 @@ keeping its shading.
 - The blog cards show the picture at 16:10 next to the summary; keep each summary short enough (about
   60 Chinese characters, 160 English) that the card is no taller than the picture.
 - The favicon and the nav glyph are the mark; the menu bar shows it in color.
+- Images on the site are linked with a version (`images/menu-light-en.png?v=1.4.2`): when you replace
+  one, raise the version in the page, or browsers and GitHub Pages keep showing the old one.

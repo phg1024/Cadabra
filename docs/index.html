@@ -218,34 +218,34 @@ footer p { margin: 14px 0 0; max-width: 820px; }
     <div class="shots">
       <div>
         <picture lang="zh">
-          <source srcset="images/menu-dark-zh.png" media="(prefers-color-scheme: dark)">
-          <img class="menu" src="images/menu-light-zh.png" width="340" alt="菜单栏弹窗">
+          <source srcset="images/menu-dark-zh.png?v=1.4.2" media="(prefers-color-scheme: dark)">
+          <img class="menu" src="images/menu-light-zh.png?v=1.4.2" width="340" alt="菜单栏弹窗">
         </picture>
         <picture lang="en">
-          <source srcset="images/menu-dark-en.png" media="(prefers-color-scheme: dark)">
-          <img class="menu" src="images/menu-light-en.png" width="340" alt="Menu bar window">
+          <source srcset="images/menu-dark-en.png?v=1.4.2" media="(prefers-color-scheme: dark)">
+          <img class="menu" src="images/menu-light-en.png?v=1.4.2" width="340" alt="Menu bar window">
         </picture>
       </div>
       <div class="side">
         <div>
           <picture lang="zh">
-            <source srcset="images/hud-recording-zh.png" media="(prefers-color-scheme: dark)">
-            <img class="hud" src="images/hud-recording-light-zh.png" alt="录音时的提示条">
+            <source srcset="images/hud-recording-zh.png?v=1.4.2" media="(prefers-color-scheme: dark)">
+            <img class="hud" src="images/hud-recording-light-zh.png?v=1.4.2" alt="录音时的提示条">
           </picture>
           <picture lang="en">
-            <source srcset="images/hud-recording-en.png" media="(prefers-color-scheme: dark)">
-            <img class="hud" src="images/hud-recording-light-en.png" alt="Recording bar">
+            <source srcset="images/hud-recording-en.png?v=1.4.2" media="(prefers-color-scheme: dark)">
+            <img class="hud" src="images/hud-recording-light-en.png?v=1.4.2" alt="Recording bar">
           </picture>
           <p class="caption"><span lang="zh">说话时，屏幕底部有一条跟着声音跳动的波形。</span><span lang="en">While you talk, a live waveform sits at the bottom of the screen.</span></p>
         </div>
         <div>
           <picture lang="zh">
-            <source srcset="images/hud-done-zh.png" media="(prefers-color-scheme: dark)">
-            <img class="hud" src="images/hud-done-light-zh.png" alt="完成提示">
+            <source srcset="images/hud-done-zh.png?v=1.4.2" media="(prefers-color-scheme: dark)">
+            <img class="hud" src="images/hud-done-light-zh.png?v=1.4.2" alt="完成提示">
           </picture>
           <picture lang="en">
-            <source srcset="images/hud-done-en.png" media="(prefers-color-scheme: dark)">
-            <img class="hud" src="images/hud-done-light-en.png" alt="Done">
+            <source srcset="images/hud-done-en.png?v=1.4.2" media="(prefers-color-scheme: dark)">
+            <img class="hud" src="images/hud-done-light-en.png?v=1.4.2" alt="Done">
           </picture>
           <p class="caption"><span lang="zh">松开键，文字就粘贴到你刚才所在的输入框里。</span><span lang="en">Let go, and the text is pasted where you were typing.</span></p>
         </div>
@@ -328,8 +328,8 @@ lsof -i -a -p $(pgrep -x Cadabra)
       <button type="button" class="chip on" data-theme="cadabra" aria-pressed="true">Cadabra</button><button type="button" class="chip" data-theme="starlight" aria-pressed="false"><span lang="zh">星夜</span><span lang="en">Starlight</span></button><button type="button" class="chip" data-theme="paper" aria-pressed="false"><span lang="zh">纸墨</span><span lang="en">Paper and ink</span></button><button type="button" class="chip" data-theme="candy" aria-pressed="false"><span lang="zh">糖果</span><span lang="en">Candy</span></button><button type="button" class="chip" data-theme="dracula" aria-pressed="false">Dracula</button><button type="button" class="chip" data-theme="nord" aria-pressed="false">Nord</button><button type="button" class="chip" data-theme="onedark" aria-pressed="false">One Dark</button><button type="button" class="chip" data-theme="monokai" aria-pressed="false">Monokai</button><button type="button" class="chip" data-theme="solarized-light" aria-pressed="false">Solarized Light</button><button type="button" class="chip" data-theme="solarized-dark" aria-pressed="false">Solarized Dark</button><button type="button" class="chip" data-theme="github-light" aria-pressed="false">GitHub Light</button><button type="button" class="chip" data-theme="gruvbox" aria-pressed="false">Gruvbox</button>
     </div>
     <div class="theme-show">
-      <img lang="zh" class="theme-pic" src="images/themes/cadabra-zh.png" width="360" height="466" alt="Cadabra 主题的菜单和录音条">
-      <img lang="en" class="theme-pic" src="images/themes/cadabra-en.png" width="360" height="466" alt="The menu and the recording bar in the Cadabra theme">
+      <img lang="zh" class="theme-pic" src="images/themes/cadabra-zh.png?v=1.4.2" width="360" height="466" alt="Cadabra 主题的菜单和录音条">
+      <img lang="en" class="theme-pic" src="images/themes/cadabra-en.png?v=1.4.2" width="360" height="466" alt="The menu and the recording bar in the Cadabra theme">
     </div>
   </div>
 </section>
@@ -431,7 +431,7 @@ lsof -i -a -p $(pgrep -x Cadabra)
   var chips = document.querySelectorAll("#theme-chips .chip");
   function show(id) {
     document.querySelectorAll(".theme-pic").forEach(function (img) {
-      img.src = "images/themes/" + id + "-" + img.getAttribute("lang") + ".png";
+      img.src = "images/themes/" + id + "-" + img.getAttribute("lang") + ".png?v=1.4.2";
     });
     chips.forEach(function (c) {
       var on = c.dataset.theme === id;
