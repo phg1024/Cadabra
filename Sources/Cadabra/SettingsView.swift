@@ -101,7 +101,7 @@ private struct GeneralSettings: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(prefs.trigger.detail(prefs.hotkey))
-                    Text(t("按着快捷键时又按了别的键（比如 ⌃C、⌥E），这次录音会自动作废；录音时按 esc 取消。", "If you press another key while holding the shortcut (like ⌃C or ⌥E), that recording is discarded. Press esc to cancel a recording."))
+                    Text(t("刚按下快捷键就又按了别的键（比如 ⌃C、⌥E），算作组合键，不录音。录音时或识别中按 esc 取消。", "Pressing another key right after the shortcut (like ⌃C or ⌥E) counts as a key combination, not a dictation. Press esc to cancel while recording or recognizing."))
                     if prefs.hotkey == .fn {
                         Text(t("Fn 键默认会弹出表情或切换输入法：请在 系统设置 › 键盘 里把「按下 🌐 键时」改成「无操作」。", "By default Fn opens the emoji picker or switches input sources: set System Settings › Keyboard › “Press 🌐 key to” to “Do Nothing”."))
                             .foregroundStyle(.orange)

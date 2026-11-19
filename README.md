@@ -23,7 +23,7 @@ Cadabra (called MyWisper before 1.2) is a menu bar dictation app for macOS. Hold
 - **Chinese, English, Cantonese, Japanese, Korean**, and Chinese–English mixed in one sentence, detected automatically.
 - **Fast**: a few seconds of speech is transcribed in about 50 ms on Apple silicon.
 - **Private**: recognition never touches the network; audio stays in memory and is discarded after recognition.
-- **Native**: SwiftUI, a small floating HUD with a live waveform, history, English and Chinese interface.
+- **Native**: SwiftUI, a small floating HUD with a live waveform, history, English and Chinese interface, and color themes (Dracula, Nord, Solarized and more).
 
 <p align="center">
   <img src="docs/images/menu-light-en.png" width="340" alt="Menu bar window">
@@ -32,6 +32,9 @@ Cadabra (called MyWisper before 1.2) is a menu bar dictation app for macOS. Hold
 </p>
 <p align="center">
   <img src="docs/images/hud-recording-en.png" width="560" alt="Recording HUD">
+</p>
+<p align="center">
+  <img src="docs/images/themes-en.png" width="760" alt="Color themes">
 </p>
 
 ## Install
@@ -50,11 +53,11 @@ Requires macOS 15 or later on Apple silicon (M1 or newer).
 
 - **Adaptive mode** (default): hold the key while you talk and release to finish, or tap it once to start and tap again when done.
 - Other keys: left Option, right Command, left or right Control, or Fn. Easiest: Settings › General › **Record Key…** and press the key you want. (For Fn, set System Settings › Keyboard › "Press 🌐 key to" to "Do Nothing".)
-- The microphone opens about 0.12 s after the key goes down, so shortcuts like ⌃C or ⌥E never trigger it; pressing another key while holding the shortcut discards that recording. **esc** cancels.
+- The microphone opens about 0.12 s after the key goes down, so shortcuts like ⌃C or ⌥E never trigger it; another key or a click right after the shortcut (within half a second) makes it a key combination, not a dictation. **esc** cancels, while recording or while the text is still being recognized.
 - With AirPods or another Bluetooth headset on, Cadabra records with the Mac's (or camera's) microphone and leaves the headset playing: using the headset's microphone switches it to call mode, which delays the start by seconds and muffles its sound. Settings › General › Microphone picks a specific one.
-- Without Accessibility permission, the text is copied to the clipboard instead.
+- The text goes only where you were when you stopped talking: if you switched windows meanwhile, or a password field has focus, it is copied to the clipboard instead. Without Accessibility permission it is always copied.
 - Recent results are in the menu bar window (click to copy); the full, searchable history is under **All history**.
-- **Learns from your fixes**: fix a word right where it was typed (within two minutes), or right-click it in All history › Correct, and Cadabra remembers it. A fix made twice is applied automatically from then on; the correction model also uses your fixes as hints. Settings › General › Learning lists what it learned.
+- **Learns from your fixes**: fix a word right where it was typed (within two minutes), or right-click it in All history › Correct, and Cadabra remembers it. Only changes that sound like what was heard count (a mishearing, not rewording). A fix made twice is applied automatically from then on, unless it would replace an ordinary English word; the correction model also uses your fixes as hints. Settings › **Vocabulary** lists your terms and everything it learned.
 - Interface language: Settings › General › **界面语言 / Language** (System, 简体中文, English).
 
 ## Privacy
