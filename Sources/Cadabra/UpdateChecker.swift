@@ -56,16 +56,76 @@ final class UpdateChecker: ObservableObject {
         return false
     }
 
+    /// Why a check failed, worded for the user.
+    enum Failure: Error, Equatable {
+        case offline, rateLimited, server(Int), unreadable
+
+        var message: String {
+            switch self {
+            case .offline: t("没连上 GitHub，检查一下网络再试。", "Couldn't reach GitHub. Check your connection and try again.")
+            case .rateLimited: t("GitHub 暂时限制了查询次数，过一会儿再试。", "GitHub is limiting requests for now. Try again in a while.")
+            case .server(let status): t("GitHub 出错了（\(status)），稍后再试。", "GitHub returned an error (\(status)). Try again later.")
+            case .unreadable: t("读不懂 GitHub 的回复，稍后再试。", "Couldn't read GitHub's reply. Try again later.")
+            }
+        }
+    }
+
+    /// Redirects to the latest release's page, ".../releases/tag/v1.4.3".
+    static let latestReleasePage = URL(string: "https://github.com/phg1024/Cadabra/releases/latest")!
+
+    /// The release a redirect landed on, from the tag at the end of its address.
+    nonisolated static func release(fromPage page: URL) -> Release? {
+        let parts = page.pathComponents
+        guard parts.count >= 2, parts[parts.count - 2] == "tag" else { return nil }
+        let version = parts[parts.count - 1].trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
+        guard version.first?.isNumber == true else { return nil }
+        return Release(version: version, page: page, notes: "")
+    }
+
+    /// The API gives the notes too, but allows 60 requests an hour per address, which a household
+    /// behind one IP can use up; the release page has no such limit and says the version in its address.
+    private func latest() async throws -> Release {
+        do {
+            return try await fromAPI()
+        } catch {
+            log.error("update check via the API failed: \(String(describing: error), privacy: .public); trying the release page")
+            return try await fromPage(apiFailure: error as? Failure ?? .offline)
+        }
+    }
+
+    private func fromAPI() async throws -> Release {
+        var request = URLRequest(url: Self.latestRelease, timeoutInterval: 15)
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        let (data, response) = try await fetch(request)
+        guard let http = response as? HTTPURLResponse else { throw Failure.unreadable }
+        guard http.statusCode == 200 else {
+            let limited = http.statusCode == 429
+                || (http.statusCode == 403 && http.value(forHTTPHeaderField: "x-ratelimit-remaining") == "0")
+            throw limited ? Failure.rateLimited : Failure.server(http.statusCode)
+        }
+        do { return try JSONDecoder().decode(Release.self, from: data) } catch { throw Failure.unreadable }
+    }
+
+    private func fromPage(apiFailure: Failure) async throws -> Release {
+        var request = URLRequest(url: Self.latestReleasePage, timeoutInterval: 15)
+        request.httpMethod = "HEAD"
+        let (_, response) = try await fetch(request)
+        guard let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let page = http.url, let release = Self.release(fromPage: page) else {
+            // The page didn't help either: the API's reason is the more telling one.
+            throw apiFailure
+        }
+        return release
+    }
+
+    private func fetch(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        do { return try await URLSession.shared.data(for: request) } catch { throw Failure.offline }
+    }
+
     func check() async {
         state = .checking
         do {
-            var request = URLRequest(url: Self.latestRelease, timeoutInterval: 15)
-            request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard (response as? HTTPURLResponse)?.statusCode == 200 else {
-                throw URLError(.badServerResponse)
-            }
-            let release = try JSONDecoder().decode(Release.self, from: data)
+            let release = try await latest()
             defaults.set(Date(), forKey: "lastUpdateCheck")
             if Self.isNewer(release.version, than: Self.currentVersion) {
                 state = .available(release)
@@ -76,8 +136,8 @@ final class UpdateChecker: ObservableObject {
             }
             log.notice("latest release \(release.version, privacy: .public), running \(Self.currentVersion, privacy: .public)")
         } catch {
-            state = .failed(t("没连上 GitHub，稍后再试。", "Couldn't reach GitHub. Try again later."))
-            log.error("update check failed: \(error.localizedDescription, privacy: .public)")
+            state = .failed((error as? Failure ?? .offline).message)
+            log.error("update check failed: \(String(describing: error), privacy: .public)")
         }
     }
 

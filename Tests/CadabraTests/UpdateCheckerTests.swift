@@ -18,4 +18,13 @@ struct UpdateCheckerTests {
         #expect(release.page.absoluteString.hasSuffix("/v1.3.0"))
         #expect(release.notes.isEmpty)
     }
+
+    @Test func readsTheVersionFromTheReleasePage() {
+        let page = URL(string: "https://github.com/phg1024/Cadabra/releases/tag/v1.4.3")!
+        #expect(UpdateChecker.release(fromPage: page)?.version == "1.4.3")
+        #expect(UpdateChecker.release(fromPage: page)?.page == page)
+        // No redirect (no release yet, or a sign-in page): no version.
+        #expect(UpdateChecker.release(fromPage: UpdateChecker.latestReleasePage) == nil)
+        #expect(UpdateChecker.release(fromPage: URL(string: "https://github.com/login")!) == nil)
+    }
 }
