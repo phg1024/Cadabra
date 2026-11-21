@@ -105,6 +105,13 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
     /// Unused this long, the model is unloaded (it holds many GB) until the next recording.
     static let restAfter: TimeInterval = 15 * 60
 
+    /// Only a model that takes more than a quarter of the memory is put to rest: loading many GB again
+    /// stalls the whole Mac for seconds, just when the user starts talking, which is worth avoiding
+    /// wherever the memory can be spared.
+    static func rests(modelBytes: UInt64, memory: UInt64 = ProcessInfo.processInfo.physicalMemory) -> Bool {
+        modelBytes > memory / 4
+    }
+
     private let queue = DispatchQueue(label: "Cadabra.llm", qos: .userInitiated)
     private var rest: DispatchWorkItem?
     private var model: OpaquePointer?
@@ -161,9 +168,12 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
     /// Loaded and not busy loading: correcting now won't wait behind a multi-GB load.
     var isReady: Bool { state == .ready }
 
-    /// Just used (or loaded): unload after `restAfter` more without use. Main thread.
+    /// Just used (or loaded): unload after `restAfter` more without use, if the model is big for this Mac.
+    /// Main thread.
     func scheduleRest() {
         rest?.cancel()
+        let size = (try? wanted?.localURL.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+        guard Self.rests(modelBytes: UInt64(size)) else { return }
         let work = DispatchWorkItem { [weak self] in
             guard let self, self.state == .ready else { return }
             self.state = .resting

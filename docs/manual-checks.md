@@ -78,8 +78,9 @@ With `examples/echo-agent` running and its plugin chosen in Settings › Agent:
 
 - [ ] Download starts, shows progress, can be cancelled.
 - [ ] Switching to the other model mid-download cancels it and shows the new model's state.
-- [ ] Unused for 15 minutes, Settings says the model was unloaded; the next recording loads it
-      again, and that dictation comes out uncorrected rather than late.
+- [ ] With a model bigger than a quarter of the memory (the 35B model on a 32 GB Mac): unused for 15
+      minutes, Settings says the model was unloaded; the next recording loads it again, and that
+      dictation comes out uncorrected rather than late. A smaller one stays loaded.
 - [ ] With correction on, the menu says the model is ready; a dictation with a learned term comes
       out corrected. `CADABRA_LLM_TESTS=1 swift test` passes.
 

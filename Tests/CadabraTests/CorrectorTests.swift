@@ -80,4 +80,11 @@ struct CorrectorTests {
         #expect(Corrector.cleanRewrite("\"a\" and \"b\"") == "\"a\" and \"b\"")   // not one quote around it all
         #expect(Corrector.cleanRewrite("<文字>改好了</文字>") == "改好了")
     }
+
+    @Test func onlyABigModelIsPutToRest() {
+        let gb: UInt64 = 1 << 30
+        #expect(!Corrector.rests(modelBytes: 21 * gb, memory: 128 * gb))   // the 35B model on a 128 GB Mac stays
+        #expect(Corrector.rests(modelBytes: 21 * gb, memory: 32 * gb))     // on a 32 GB one it rests
+        #expect(!Corrector.rests(modelBytes: 3 * gb, memory: 16 * gb))     // the 4B model stays even on 16 GB
+    }
 }
