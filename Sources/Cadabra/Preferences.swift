@@ -278,7 +278,7 @@ final class Preferences: ObservableObject {
         correction = defaults.bool(forKey: "correction")
         hotwords = defaults.object(forKey: "hotwords") as? Bool ?? true
         useContext = defaults.object(forKey: "useContext") as? Bool ?? true
-        correctionModel = CorrectionModel(rawValue: defaults.string(forKey: "correctionModel") ?? "") ?? .recommended
+        correctionModel = CorrectionModel(saved: defaults.string(forKey: "correctionModel") ?? "") ?? .recommended
         autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
         restoreClipboard = defaults.object(forKey: "restoreClipboard") as? Bool ?? true
         dropTrailingPeriod = defaults.object(forKey: "dropTrailingPeriod") as? Bool ?? false

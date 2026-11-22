@@ -87,4 +87,10 @@ struct CorrectorTests {
         #expect(Corrector.rests(modelBytes: 21 * gb, memory: 32 * gb))     // on a 32 GB one it rests
         #expect(!Corrector.rests(modelBytes: 3 * gb, memory: 16 * gb))     // the 4B model stays even on 16 GB
     }
+
+    @Test func theOldBigModelChoiceMovesToTheNewOne() {
+        #expect(CorrectionModel(saved: "qwen35bA3B") == .qwen36bA3B)
+        #expect(CorrectionModel(saved: "qwen4B") == .qwen4B)
+        #expect(CorrectionModel(saved: "nonsense") == nil)
+    }
 }

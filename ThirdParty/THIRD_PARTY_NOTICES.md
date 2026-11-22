@@ -23,7 +23,7 @@ Cadabra bundles the following third-party components.
 
 - https://github.com/ggml-org/llama.cpp, version v0.9.0 (static libraries, used for the optional correction)
 - License: MIT (full text below)
-- The correction model itself (Qwen3.5, Apache License 2.0) is not bundled; it is downloaded on request from Hugging Face.
+- The correction model itself (Qwen3.6 or Qwen3.5, Apache License 2.0) is not bundled; it is downloaded on request from Hugging Face.
 
 ---
 

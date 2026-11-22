@@ -5,34 +5,34 @@ import Foundation
 /// A Qwen model that Cadabra can download for correction. Pinned to one Hugging Face revision and
 /// checked against its SHA-256 after downloading.
 enum CorrectionModel: String, CaseIterable, Identifiable {
-    case qwen35bA3B, qwen4B
+    case qwen36bA3B, qwen4B
 
     var id: String { rawValue }
 
     var fileName: String {
         switch self {
-        case .qwen35bA3B: "Qwen3.5-35B-A3B-Q4_K_M.gguf"
+        case .qwen36bA3B: "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
         case .qwen4B: "Qwen3.5-4B-Q4_K_M.gguf"
         }
     }
 
     var url: URL {
         switch self {
-        case .qwen35bA3B: URL(string: "https://huggingface.co/unsloth/Qwen3.5-35B-A3B-GGUF/resolve/bc014a17be43adabd7066b7a86075ff935c6a4e2/\(fileName)")!
+        case .qwen36bA3B: URL(string: "https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/a483e9e6cbd595906af30beda3187c2663a1118c/\(fileName)")!
         case .qwen4B: URL(string: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/e87f176479d0855a907a41277aca2f8ee7a09523/\(fileName)")!
         }
     }
 
     var sha256: String {
         switch self {
-        case .qwen35bA3B: "3b46d1066bc91cc2d613e3bc22ce691dd77e6f0d33c9060690d24ce6de494375"
+        case .qwen36bA3B: "ac0e2c1189e055faa36eff361580e79c5bd6f8e76bffb4ce547f167d53e31a61"
         case .qwen4B: "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4"
         }
     }
 
     var bytes: Int64 {
         switch self {
-        case .qwen35bA3B: 22_016_023_168
+        case .qwen36bA3B: 22_134_528_992
         case .qwen4B: 2_740_937_888
         }
     }
@@ -40,14 +40,20 @@ enum CorrectionModel: String, CaseIterable, Identifiable {
     var title: String {
         let size = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
         switch self {
-        case .qwen35bA3B: return t("Qwen3.5 35B-A3B（\(size)，更准，需要 48GB 以上内存）", "Qwen3.5 35B-A3B (\(size), more accurate, needs 48 GB of memory or more)")
+        case .qwen36bA3B: return t("Qwen3.6 35B-A3B（\(size)，更准，需要 48GB 以上内存）", "Qwen3.6 35B-A3B (\(size), more accurate, needs 48 GB of memory or more)")
         case .qwen4B: return t("Qwen3.5 4B（\(size)，适合内存较小的 Mac）", "Qwen3.5 4B (\(size), for Macs with less memory)")
         }
     }
 
-    /// The bigger model when this Mac has room for it.
+    /// The bigger model when this Mac has room for it. (Its 2-bit file corrected as well on 691 saved dictations
+    /// in half the memory, but stopped applying a learned word that is also a common one: 对应 → dwin.)
     static var recommended: CorrectionModel {
-        ProcessInfo.processInfo.physicalMemory >= 48 << 30 ? .qwen35bA3B : .qwen4B
+        ProcessInfo.processInfo.physicalMemory >= 48 << 30 ? .qwen36bA3B : .qwen4B
+    }
+
+    /// The saved choice; "qwen35bA3B" was the bigger model until 1.4.3.
+    init?(saved: String) {
+        self.init(rawValue: saved == "qwen35bA3B" ? "qwen36bA3B" : saved)
     }
 
     static let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]

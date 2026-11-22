@@ -99,6 +99,6 @@ Cadabra is released under the [MIT License](LICENSE).
 
 - Speech model: **SenseVoice-Small** by FunAudioLLM (Tongyi Lab, Alibaba Group), under the [FunASR Model Open Source License 1.1](https://github.com/modelscope/FunASR/blob/main/MODEL_LICENSE); ONNX conversion by the sherpa-onnx project.
 - [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) (Apache-2.0) and [ONNX Runtime](https://github.com/microsoft/onnxruntime) (MIT).
-- [llama.cpp](https://github.com/ggml-org/llama.cpp) (MIT) for the optional correction; the [Qwen3.5](https://huggingface.co/Qwen) model (Apache-2.0) is downloaded only if you ask for it.
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) (MIT) for the optional correction; the [Qwen3.6 or Qwen3.5](https://huggingface.co/Qwen) model (Apache-2.0) is downloaded only if you ask for it.
 
 Full texts are in [ThirdParty/](ThirdParty/) and inside the app.
