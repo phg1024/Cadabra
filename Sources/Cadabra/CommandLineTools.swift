@@ -9,6 +9,7 @@ import SwiftUI
 ///   Cadabra --make-icon <dir.iconset>
 ///   Cadabra --microphones             lists the inputs and the one a recording would use
 ///   Cadabra --record <seconds> <out.wav> [microphone UID]   records like the hotkey does
+///   Cadabra --eval-correction <samples.json> [count]   scores the correction model on saved training samples
 enum CommandLineTools {
     static func run(_ args: [String]) -> Bool {
         guard args.count > 1 else { return false }
@@ -27,6 +28,8 @@ enum CommandLineTools {
             for mic in Microphones.all() {
                 print("\(mic.uid == chosen?.uid ? "*" : " ") \(mic.name)\(mic.isBluetooth ? " (Bluetooth)" : "")\(mic.isVirtual ? " (virtual)" : "")")
             }
+        case "--eval-correction" where args.count > 2:
+            evalCorrection(URL(fileURLWithPath: args[2]), count: args.count > 3 ? Int(args[3]) : nil)
         case "--record" where args.count > 3:
             record(seconds: Double(args[2]) ?? 3, to: URL(fileURLWithPath: args[3]), uid: args.count > 4 ? args[4] : Preferences.shared.microphone)
         default:
@@ -69,6 +72,46 @@ enum CommandLineTools {
         try? AudioFile.wav(samples).write(to: url)
         print(String(format: "opened in %.2f s, first sound after %.2f s, %.2f s recorded", opened, first ?? -1,
                      Double(samples.count) / Double(ASREngine.sampleRate)))
+    }
+
+    /// Corrects the recognized text of saved training samples (Training/samples.json) the way a dictation is
+    /// corrected, and counts how often the result is the text the user kept, by kind of sample: `edited` (the
+    /// user fixed it by hand), `modelChanged` (the model's change was kept), `unchanged` (it was right as heard).
+    /// For comparing models: CADABRA_LLM_MODEL=/path/to/other.gguf.
+    private static func evalCorrection(_ url: URL, count: Int?) {
+        guard var samples = Storage.load([TrainingSample].self, from: url) else {
+            print("can't read \(url.path)"); exit(1)
+        }
+        if let count { samples = Array(samples.suffix(count)) }
+        do { try Corrector.shared.loadForCommandLine(.recommended) } catch { print("correction model: \(error.localizedDescription)"); exit(1) }
+        let prefs = Preferences.shared, learned = LearnedFixes.shared
+        let vocabulary = ([prefs.vocabulary] + learned.terms.prefix(30)).filter { !$0.isEmpty }.joined(separator: ", ")
+        var right: [String: Int] = [:], total: [String: Int] = [:], seconds = 0.0
+        for sample in samples {
+            let done = DispatchSemaphore(value: 0)
+            var result = sample.recognized
+            Task.detached {
+                let began = Date()
+                if let fixed = try? await Corrector.shared.correct(sample.recognized, vocabulary: vocabulary,
+                                                                   learned: learned.hints(for: sample.recognized),
+                                                                   keep: learned.keep(vocabulary: prefs.vocabulary)) {
+                    result = fixed
+                }
+                seconds += Date().timeIntervalSince(began)
+                done.signal()
+            }
+            done.wait()
+            let kind = sample.label.rawValue
+            total[kind, default: 0] += 1
+            if result == sample.text {
+                right[kind, default: 0] += 1
+            } else {
+                print("✗ \(kind)\n  heard  \(sample.recognized)\n  got    \(result)\n  wanted \(sample.text)")
+            }
+        }
+        for kind in total.keys.sorted() { print("\(kind): \(right[kind, default: 0]) of \(total[kind]!) right") }
+        print(String(format: "%d samples, %.0f ms each on average", samples.count, seconds / Double(max(samples.count, 1)) * 1000))
+        Corrector.shared.shutDown()
     }
 
     private static func transcribe(_ args: [String]) {
