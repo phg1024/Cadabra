@@ -161,6 +161,7 @@ final class AppModel: ObservableObject {
     func refreshPermissions() {
         let mic = AVCaptureDevice.authorizationStatus(for: .audio)
         if mic != micStatus { micStatus = mic }   // every second: publish only changes
+        hotkeys.catchUp()
         let trusted = AXIsProcessTrusted()
         guard trusted != accessibilityGranted || trusted != hotkeys.isRunning else { return }
         accessibilityGranted = trusted
@@ -198,7 +199,12 @@ final class AppModel: ObservableObject {
     private func hotkeyDown(_ pressed: Mode = .dictate) {
         pressTime = Date()
         if isRecording {
-            if pressed == mode, prefs.trigger != .auto || latched { stop() }
+            // Held-to-talk never sees a second press, unless the release went missing: stop then too,
+            // rather than leaving only esc.
+            if pressed == mode {
+                if prefs.trigger == .auto && !latched { log.notice("pressed again while held: the release was missed") }
+                stop()
+            }
             return
         }
         if pressed == .agent, AgentPlugin.selected == nil {
@@ -613,8 +619,13 @@ final class AppModel: ObservableObject {
 
     // MARK: Login item
 
+    /// Asked of macOS once and then remembered: Settings redraws with every level update while recording,
+    /// and each question is a round trip to another process on the main thread (30 a second held up the
+    /// hotkey's event tap). Settings asks again when it opens.
+    private lazy var loginItemEnabled = SMAppService.mainApp.status == .enabled
+
     var launchAtLogin: Bool {
-        get { SMAppService.mainApp.status == .enabled }
+        get { loginItemEnabled }
         set {
             objectWillChange.send()
             do {
@@ -622,6 +633,15 @@ final class AppModel: ObservableObject {
             } catch {
                 NSLog("Cadabra login item: \(error)")
             }
+            loginItemEnabled = SMAppService.mainApp.status == .enabled
+        }
+    }
+
+    func refreshLoginItem() {
+        let enabled = SMAppService.mainApp.status == .enabled
+        if enabled != loginItemEnabled {
+            objectWillChange.send()
+            loginItemEnabled = enabled
         }
     }
 

@@ -248,6 +248,7 @@ private struct GeneralSettings: View {
         } message: {
             Text(t("这一步不能撤销。", "This can’t be undone."))
         }
+        .onAppear { model.refreshLoginItem() }   // it may have been changed in System Settings
     }
 }
 

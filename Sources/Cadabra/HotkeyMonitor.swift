@@ -1,5 +1,8 @@
 import CoreGraphics
 import Foundation
+import os
+
+private let log = Logger(subsystem: "com.peihongguo.Cadabra", category: "hotkey")
 
 /// Watches one modifier key system-wide through a Quartz event tap on the main run loop,
 /// so every callback arrives on the main thread. Events pass through untouched, except an esc that
@@ -30,6 +33,8 @@ final class HotkeyMonitor {
     private var isEditDown = false
     private var isAgentDown = false
     private var anyDown: Bool { isDown || isEditDown || isAgentDown }
+    /// How many checks in a row found a key released that we still think is held.
+    private var releaseSeen = 0
 
     init(hotkey: Hotkey) {
         self.hotkey = hotkey
@@ -68,7 +73,11 @@ final class HotkeyMonitor {
     func handle(_ type: CGEventType, _ event: CGEvent) -> Bool {
         switch type {
         case .tapDisabledByTimeout, .tapDisabledByUserInput:
+            // macOS switches the tap off when the main thread keeps it waiting about a second. Whatever
+            // happened meanwhile never reaches us, a release included, which left a recording running.
+            log.notice("tap switched off by macOS (\(type == .tapDisabledByTimeout ? "timeout" : "user input", privacy: .public)), turning it back on")
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
+            catchUp(confirmed: true)
             return false
         default:
             break
@@ -84,6 +93,7 @@ final class HotkeyMonitor {
                 let down = hotkey.isHeld(in: event.flags)
                 guard down != isDown else { return false }
                 isDown = down
+                log.notice("key \(down ? "down" : "up", privacy: .public)")
                 down ? onDown?() : onUp?()
             } else if let edit = editHotkey, code == edit.keyCode {
                 let down = edit.isHeld(in: event.flags)
@@ -108,6 +118,23 @@ final class HotkeyMonitor {
             break
         }
         return false
+    }
+
+    /// Notices a release that never arrived, from the keyboard's state. Only releases: a press made up
+    /// from the state could be our own ⌘V. `confirmed` acts at once (the tap was off, so events were
+    /// lost); otherwise it takes two checks in a row, so an event still on its way is not overtaken.
+    func catchUp(confirmed: Bool = false, flags: CGEventFlags = CGEventSource.flagsState(.combinedSessionState)) {
+        let missed = [isDown && !hotkey.isHeld(in: flags),
+                      isEditDown && !(editHotkey?.isHeld(in: flags) ?? false),
+                      isAgentDown && !(agentHotkey?.isHeld(in: flags) ?? false)]
+        guard missed.contains(true) else { releaseSeen = 0; return }
+        releaseSeen += 1
+        guard confirmed || releaseSeen >= 2 else { return }
+        releaseSeen = 0
+        log.notice("caught up on a release that never arrived")
+        if missed[0] { isDown = false; onUp?() }
+        if missed[1] { isEditDown = false; onEditUp?() }
+        if missed[2] { isAgentDown = false; onAgentUp?() }
     }
 }
 

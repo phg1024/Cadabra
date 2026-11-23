@@ -131,6 +131,27 @@ struct HotkeyMonitorTests {
         #expect(calls == ["agent down", "agent up"])
     }
 
+    @Test func aReleaseThatNeverArrivedIsCaughtUp() {
+        let monitor = HotkeyMonitor(hotkey: .rightOption)
+        var calls: [String] = []
+        monitor.onDown = { calls.append("down") }
+        monitor.onUp = { calls.append("up") }
+        let held = CGEventFlags(rawValue: CGEventFlags.maskAlternate.rawValue | 0x40)
+        _ = monitor.handle(.flagsChanged, key(61, flags: held))
+        monitor.catchUp(flags: held)   // still held: nothing
+        monitor.catchUp(flags: [])     // released, but its event may be on its way: wait one more check
+        #expect(calls == ["down"])
+        monitor.catchUp(flags: [])
+        #expect(calls == ["down", "up"])
+        _ = monitor.handle(.flagsChanged, key(61))   // the late event changes nothing
+        #expect(calls == ["down", "up"])
+        _ = monitor.handle(.flagsChanged, key(61, flags: held))
+        monitor.catchUp(confirmed: true, flags: [])   // the tap was off: at once
+        #expect(calls == ["down", "up", "down", "up"])
+        monitor.catchUp(confirmed: true, flags: held)   // never makes up a press
+        #expect(calls.count == 4)
+    }
+
     @Test func ourOwnPasteIsIgnored() {
         let monitor = HotkeyMonitor(hotkey: .rightOption)
         var chords = 0

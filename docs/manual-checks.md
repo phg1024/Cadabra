@@ -8,6 +8,8 @@ real Mac. Run through this list before a release, and after changing the file na
 
 - [ ] Hold the dictation key, speak, release: the text appears at the cursor.
 - [ ] Toggle mode (Settings): press once to start, again to finish.
+- [ ] Hold the key, speak, and (as if the release went missing) press it again: the recording ends and
+  the text appears; esc isn't needed.
 - [ ] Holding the key and pressing another (⌥A, ⌥-click) types the shortcut and doesn't dictate.
 - [ ] Talking for a few seconds with the key held, then clicking somewhere: the recording goes on.
 - [ ] esc while the HUD says it is recognizing: nothing is pasted, the HUD says cancelled.
