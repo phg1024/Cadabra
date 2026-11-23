@@ -161,7 +161,6 @@ final class AppModel: ObservableObject {
     func refreshPermissions() {
         let mic = AVCaptureDevice.authorizationStatus(for: .audio)
         if mic != micStatus { micStatus = mic }   // every second: publish only changes
-        hotkeys.catchUp()
         let trusted = AXIsProcessTrusted()
         guard trusted != accessibilityGranted || trusted != hotkeys.isRunning else { return }
         accessibilityGranted = trusted

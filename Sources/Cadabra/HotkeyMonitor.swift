@@ -33,8 +33,6 @@ final class HotkeyMonitor {
     private var isEditDown = false
     private var isAgentDown = false
     private var anyDown: Bool { isDown || isEditDown || isAgentDown }
-    /// How many checks in a row found a key released that we still think is held.
-    private var releaseSeen = 0
 
     init(hotkey: Hotkey) {
         self.hotkey = hotkey
@@ -76,8 +74,13 @@ final class HotkeyMonitor {
             // macOS switches the tap off when the main thread keeps it waiting about a second. Whatever
             // happened meanwhile never reaches us, a release included, which left a recording running.
             log.notice("tap switched off by macOS (\(type == .tapDisabledByTimeout ? "timeout" : "user input", privacy: .public)), turning it back on")
+            // The keyboard's own state can't be trusted to say whether the key is still held (it said
+            // released while it was held), so forget what we knew instead: the next press of the key
+            // then gets through even if its release was lost, and a press while recording finishes it.
             if let tap { CGEvent.tapEnable(tap: tap, enable: true) }
-            catchUp(confirmed: true)
+            isDown = false
+            isEditDown = false
+            isAgentDown = false
             return false
         default:
             break
@@ -118,23 +121,6 @@ final class HotkeyMonitor {
             break
         }
         return false
-    }
-
-    /// Notices a release that never arrived, from the keyboard's state. Only releases: a press made up
-    /// from the state could be our own ⌘V. `confirmed` acts at once (the tap was off, so events were
-    /// lost); otherwise it takes two checks in a row, so an event still on its way is not overtaken.
-    func catchUp(confirmed: Bool = false, flags: CGEventFlags = CGEventSource.flagsState(.combinedSessionState)) {
-        let missed = [isDown && !hotkey.isHeld(in: flags),
-                      isEditDown && !(editHotkey?.isHeld(in: flags) ?? false),
-                      isAgentDown && !(agentHotkey?.isHeld(in: flags) ?? false)]
-        guard missed.contains(true) else { releaseSeen = 0; return }
-        releaseSeen += 1
-        guard confirmed || releaseSeen >= 2 else { return }
-        releaseSeen = 0
-        log.notice("caught up on a release that never arrived")
-        if missed[0] { isDown = false; onUp?() }
-        if missed[1] { isEditDown = false; onEditUp?() }
-        if missed[2] { isAgentDown = false; onAgentUp?() }
     }
 }
 

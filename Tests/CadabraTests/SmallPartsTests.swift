@@ -131,25 +131,16 @@ struct HotkeyMonitorTests {
         #expect(calls == ["agent down", "agent up"])
     }
 
-    @Test func aReleaseThatNeverArrivedIsCaughtUp() {
+    @Test func afterTheTapWasSwitchedOffTheNextPressGetsThrough() {
         let monitor = HotkeyMonitor(hotkey: .rightOption)
         var calls: [String] = []
         monitor.onDown = { calls.append("down") }
         monitor.onUp = { calls.append("up") }
         let held = CGEventFlags(rawValue: CGEventFlags.maskAlternate.rawValue | 0x40)
         _ = monitor.handle(.flagsChanged, key(61, flags: held))
-        monitor.catchUp(flags: held)   // still held: nothing
-        monitor.catchUp(flags: [])     // released, but its event may be on its way: wait one more check
-        #expect(calls == ["down"])
-        monitor.catchUp(flags: [])
-        #expect(calls == ["down", "up"])
-        _ = monitor.handle(.flagsChanged, key(61))   // the late event changes nothing
-        #expect(calls == ["down", "up"])
-        _ = monitor.handle(.flagsChanged, key(61, flags: held))
-        monitor.catchUp(confirmed: true, flags: [])   // the tap was off: at once
-        #expect(calls == ["down", "up", "down", "up"])
-        monitor.catchUp(confirmed: true, flags: held)   // never makes up a press
-        #expect(calls.count == 4)
+        _ = monitor.handle(.tapDisabledByTimeout, key(0))   // the release is lost while it's off
+        _ = monitor.handle(.flagsChanged, key(61, flags: held))   // pressed again
+        #expect(calls == ["down", "down"])
     }
 
     @Test func ourOwnPasteIsIgnored() {
