@@ -88,8 +88,10 @@ struct LearnedFixesTests {
         let learned = LearnedFixes(url: nil)
         learned.learn(typed: "试试dation吧", edited: "试试dictation吧", weight: 5)
         learned.learn(typed: "记得不许上去", edited: "记得push上去")
-        #expect(learned.hints(for: "可以不许吗") == "不许 → push；dation → dictation")
-        #expect(learned.hints(for: "可以不许吗", limit: 1) == "不许 → push")
+        #expect(learned.hints(for: "可以不许吗") == Hints(sure: "dation → dictation", once: "不许 → push"))
+        #expect(learned.hints(for: "可以不许吗", limit: 1) == Hints(once: "不许 → push"))
+        learned.learn(typed: "记得不许上去", edited: "记得push上去")
+        #expect(learned.hints(for: "可以不许吗") == Hints(sure: "不许 → push；dation → dictation"))
         #expect(learned.terms == ["dictation", "push"])
     }
 

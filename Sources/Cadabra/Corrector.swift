@@ -210,9 +210,9 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
 
     // MARK: Correction
 
-    /// `learned`: the user's earlier fixes, "heard → meant; ...". `keep`: words the answer may not take out.
+    /// `learned`: the user's earlier fixes. `keep`: words the answer may not take out.
     /// `context`: the text around the cursor where this goes, for names and how they are written.
-    func correct(_ text: String, vocabulary: String, learned: String = "", keep: [String] = [],
+    func correct(_ text: String, vocabulary: String, learned: Hints = Hints(), keep: [String] = [],
                  context: FocusContext? = nil) async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
             queue.async {
@@ -231,12 +231,15 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func run(_ text: String, vocabulary: String, learned: String, keep: [String], context around: FocusContext?) throws -> String {
+    private func run(_ text: String, vocabulary: String, learned: Hints, keep: [String], context around: FocusContext?) throws -> String {
         guard let model, let context, let sampler else { throw Failure.notReady }
         let vocab = llama_model_get_vocab(model)
         var system = Self.instructions
         if !vocabulary.isEmpty { system += "\n说话人常用的词：\(vocabulary)" }
-        if !learned.isEmpty { system += "\n说话人以前亲手改过的地方（左边是识别错的，右边是本意），同样的错再出现就照着改：\(learned)" }
+        if !learned.sure.isEmpty { system += "\n说话人以前亲手改过不止一次的地方（左边是识别错的，右边是本意），同样的错再出现就照着改：\(learned.sure)" }
+        if !learned.once.isEmpty {
+            system += "\n说话人以前只改过一次的地方，往往只对当时那句话成立，仅供参考：只有这句话说的明显就是右边的意思时才改，拿不准就保持原样：\(learned.once)"
+        }
         if let around, !around.isEmpty {
             system += "\n这段话要插入到下面这段文字的 ⟨光标⟩ 处。它不是要纠错的内容，不要改它，也不要输出它；但如果识别结果里有词明显是这段文字里出现过的人名或术语被听成了别的字，就改成这段文字里的写法，中文听成了英文名或英文名听成了中文都照改：\n\(around.prompt)"
         }
@@ -348,10 +351,11 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
     static func answer(_ output: String, for text: String, keep: [String] = []) -> String? {
         let raw = output.replacing(#/(?s)<think>.*?</think>/#, with: "").replacing(#/</?text>/#, with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { return nil }
         let merged = TextDiff.merge(text, raw) { original, corrected in
             let corrected = vet(original, corrected)
             let dropsATerm = keep.contains { TextDiff.contains(original, term: $0) && !TextDiff.contains(corrected, term: $0) }
-            return dropsATerm ? original : corrected
+            return dropsATerm || dropsWords(original, corrected, in: text) ? original : corrected
         }
         let answer = respace(merged, like: text)
         // A correction keeps roughly the same length; anything else is the model answering or rewriting.
@@ -361,6 +365,20 @@ final class Corrector: NSObject, ObservableObject, @unchecked Sendable {
         let ratio = Double(new) / Double(max(old, 1))
         guard !answer.isEmpty, (ratio > 0.6 && ratio < 1.5) || abs(new - old) <= 6 else { return nil }
         return answer
+    }
+
+    /// Words taken out with no stutter to explain it (特别有成就感 → 有成就感, 惊呆了 → 惊呆): the model
+    /// trimming what was said. A repetition may go (你让你让他 → 你让他, 英英文 → 英文), wherever the
+    /// diff happened to cut it.
+    static func dropsWords(_ original: String, _ corrected: String, in text: String) -> Bool {
+        guard original.contains(where: { $0.isLetter || $0.isNumber }),
+              !corrected.contains(where: { $0.isLetter || $0.isNumber }) else { return false }
+        let said = Array(original.trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters)))
+        let repeated = said.indices.contains { i in
+            let turn = String(said[i...] + said[..<i])
+            return text.contains(turn + turn) || text.localizedCaseInsensitiveContains(turn + " " + turn)
+        }
+        return !repeated
     }
 
     /// What the model may change. It still sometimes translates English it doesn't recognize

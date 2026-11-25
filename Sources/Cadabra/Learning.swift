@@ -31,6 +31,15 @@ struct LearnedFix: Codable, Identifiable, Hashable {
     }
 }
 
+/// Learned fixes for the corrector's prompt, "heard → meant；...". `sure`: made at least twice, to
+/// follow. `once`: made once, often right only for that sentence (模型 → 波形 once, when the
+/// user was talking about a waveform), so only a lead: given as rules, the model applied them
+/// to every 模型 it saw.
+struct Hints: Equatable {
+    var sure = ""
+    var once = ""
+}
+
 /// Fixes learned from the user's own corrections, in ~/Library/Application Support/Cadabra/learned.json
 /// (owner-only). Only the changed words are kept, never the text around them.
 final class LearnedFixes: ObservableObject {
@@ -109,13 +118,15 @@ final class LearnedFixes: ObservableObject {
         return text
     }
 
-    /// For the corrector's prompt: fixes that may matter for this text, most relevant first.
-    func hints(for text: String, limit: Int = 20) -> String {
+    /// For the corrector's prompt: fixes that may matter for this text, most relevant first, the
+    /// confirmed ones apart from those made once.
+    func hints(for text: String, limit: Int = 20) -> Hints {
         let relevant = fixes.sorted { a, b in
             let (ina, inb) = (text.localizedCaseInsensitiveContains(a.heard), text.localizedCaseInsensitiveContains(b.heard))
             return ina != inb ? ina : (a.count, a.lastSeen) > (b.count, b.lastSeen)
-        }
-        return relevant.prefix(limit).map { "\($0.heard) → \($0.meant)" }.joined(separator: "；")
+        }.prefix(limit)
+        func list(_ fixes: [LearnedFix]) -> String { fixes.map { "\($0.heard) → \($0.meant)" }.joined(separator: "；") }
+        return Hints(sure: list(relevant.filter(\.confirmed)), once: list(relevant.filter { !$0.confirmed }))
     }
 
     /// English words the user corrected to (push, commit), for the speech decoder to favour. Learned

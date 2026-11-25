@@ -57,6 +57,15 @@ struct CorrectorTests {
         #expect(Corrector.answer("", for: "改完记得不许到远端。") == nil)
     }
 
+    @Test func wordsTakenOutAreKeptUnlessTheyWereAStutter() {
+        #expect(Corrector.answer("他特别喜欢，有成就感。", for: "他特别喜欢，特别有成就感。") == "他特别喜欢，特别有成就感。")
+        #expect(Corrector.answer("还打开了电脑，惊呆。", for: "还打开了电脑，惊呆了。") == "还打开了电脑，惊呆了。")
+        #expect(Corrector.answer("你让他重新画了吗？", for: "你让你让他重新画了吗？") == "你让他重新画了吗？")
+        #expect(Corrector.answer("把英文改一下", for: "把英英文改一下") == "把英文改一下")
+        #expect(Corrector.answer("check the log", for: "check the the log") == "check the log")
+        #expect(Corrector.answer("好的，就这样", for: "好的就这样") == "好的，就这样")   // punctuation may still go in
+    }
+
     @Test func answerKeepsTheUsersTermsWhereTheyWere() {
         let keep = ["ender", "push", "commit"]
         #expect(Corrector.answer("<text>拿push打支架</text>", for: "拿ender打支架", keep: keep) == "拿ender打支架")
