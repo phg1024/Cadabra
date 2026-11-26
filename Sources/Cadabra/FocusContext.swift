@@ -14,6 +14,18 @@ struct FocusContext: Equatable {
 
     var isEmpty: Bool { before.isEmpty && after.isEmpty }
 
+    /// Without `typed` (the dictation's own live draft) where it sits, just before the cursor; nil when
+    /// nothing else is left.
+    func without(_ typed: String) -> FocusContext? {
+        var context = self
+        if let range = before.range(of: typed, options: .backwards) {
+            context.before.removeSubrange(range)
+        } else if typed.hasSuffix(before) {
+            context.before = ""   // a long draft: all that was kept before the cursor is its end
+        }
+        return context.isEmpty ? nil : context
+    }
+
     @MainActor
     static func read() -> FocusContext? {
         guard NSWorkspace.shared.frontmostApplication?.processIdentifier != getpid(),

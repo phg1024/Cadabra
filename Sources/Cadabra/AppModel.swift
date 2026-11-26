@@ -353,7 +353,10 @@ final class AppModel: ObservableObject {
     func stop() {
         guard isRecording else { return }
         let target = TextInjector.Target.current()
-        let context = prefs.useContext && (prefs.hotwords || prefs.correction) ? FocusContext.read() : nil
+        var context = prefs.useContext && (prefs.hotwords || prefs.correction) ? FocusContext.read() : nil
+        // What live typing put in the field is this dictation, not the text around it: given it as context,
+        // the corrector copied the draft's mishearings back ("muse" back to the draft's "mususe").
+        if typingLive, !typer.typed.isEmpty { context = context?.without(typer.typed) }
         let mode = self.mode
         let samples = finishRecording()
         let duration = Double(samples.count) / Double(ASREngine.sampleRate)
@@ -453,7 +456,7 @@ final class AppModel: ObservableObject {
             defer { previewBusy = false }
             guard let transcript = try? await engine.transcribe(audio, hotwords: hotwords),
                   isRecording, recordingStart == session else { return }
-            let text = LearnedFixes.shared.apply(transcript.text)
+            let text = LearnedFixes.shared.apply(RepeatedEnding.fix(transcript.text))   // as the final text gets
             if mode == .agent { return PluginHost.shared.partial(text) }
             // Typed into the field; where that stopped working, shown in the bar instead.
             if inField, typer.show(text) { liveText = "" } else { liveText = text }

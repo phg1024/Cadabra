@@ -2,6 +2,14 @@ import Testing
 @testable import Cadabra
 
 struct FocusContextTests {
+    @Test func theLiveDraftIsNotContext() {
+        let draft = "mususe home link里面是什么东西？"
+        #expect(FocusContext(before: draft, after: "").without(draft) == nil)
+        #expect(FocusContext(before: "你看看HomeLink。" + draft, after: "")
+            .without(draft) == FocusContext(before: "你看看HomeLink。", after: ""))
+        #expect(FocusContext(before: "link里面是什么东西？", after: "后面").without(draft) == FocusContext(before: "", after: "后面"))
+    }
+
     @Test func splitsAtTheCaret() {
         let text = "Hi Jonathan, 你好"
         let context = FocusContext.around(text, caret: 13)   // after the comma and space

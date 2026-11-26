@@ -8,6 +8,7 @@ struct RepeatedEndingTests {
         #expect(RepeatedEnding.fix("this is pendingending") == "this is pending")
         #expect(RepeatedEnding.fix("an objectject here") == "an object here")
         #expect(RepeatedEnding.fix("visualualization") == "visualization")
+        #expect(RepeatedEnding.fix("mususe home link里面") == "muse home link里面")   // the model hears "mus" + "use"
     }
 
     @Test func leavesRealWordsAndNamesAlone() {
