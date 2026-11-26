@@ -14,6 +14,9 @@ struct HotwordDecoder {
         var next: [Int: Node] = [:]
         var end = false
         var depth = 0
+        /// For a word that ends here: its bonus, and its bonus when it ran on from an English word.
+        var reward: Float = 0
+        var gluedReward: Float = 0
     }
 
     static let bonus: Float = 3.0
@@ -26,17 +29,30 @@ struct HotwordDecoder {
 
     let root = Node()
     var isEmpty: Bool { root.next.isEmpty }
+    /// Pieces that end in a Latin letter or digit, and pieces that start a word (▁).
+    private let latinEnd: Set<Int>
+    private let wordStart: Set<Int>
 
     /// `pieces`: the model's tokens. Each word goes in as every way of spelling it with the model's pieces
     /// (as it would be emitted inside a sentence, and lowercase too), so it matches however the model
-    /// happens to split it.
+    /// happens to split it. The bonus is per piece, but a word run on from an English word before it earns
+    /// no more than its fewest pieces with a space: otherwise giving up the space in between was worth an
+    /// extra piece, and "muse home link" with HomeLink came out as "mus|use|ho|me|link", run together.
+    /// (After Chinese, English comes without the space; there it keeps its whole bonus.)
     init(words: [String], pieces: [String]) {
+        latinEnd = Set(pieces.indices.filter { pieces[$0].last.map { $0.isASCII && ($0.isLetter || $0.isNumber) } == true })
+        wordStart = Set(pieces.indices.filter { pieces[$0].hasPrefix("▁") })
         var index: [String: Int] = [:]
         for (i, piece) in pieces.enumerated() where index[piece] == nil && !piece.hasPrefix("<") { index[piece] = i }
         let longest = pieces.map(\.count).max() ?? 1
         for word in Set(words.flatMap { [$0, $0.lowercased()] }) {
-            for form in [word, "▁" + word] {
-                for spelling in Self.spellings(Array(form), index: index, longest: longest) { add(spelling) }
+            let spaced = Self.spellings(Array("▁" + word), index: index, longest: longest)
+            let cap = spaced.map(\.count).min() ?? Int.max
+            for spelling in spaced {
+                add(spelling, reward: Self.bonus * Float(spelling.count), glued: Self.bonus * Float(spelling.count))
+            }
+            for spelling in Self.spellings(Array(word), index: index, longest: longest) {
+                add(spelling, reward: Self.bonus * Float(spelling.count), glued: Self.bonus * Float(min(spelling.count, cap)))
             }
         }
     }
@@ -72,7 +88,7 @@ struct HotwordDecoder {
         return out.sorted { $0.count < $1.count }
     }
 
-    private func add(_ ids: [Int]) {
+    private func add(_ ids: [Int], reward: Float, glued: Float) {
         var node = root
         for id in ids {
             if let child = node.next[id] {
@@ -85,23 +101,27 @@ struct HotwordDecoder {
             }
         }
         node.end = true
+        node.reward = max(node.reward, reward)
+        node.gluedReward = max(node.gluedReward, glued)
     }
 
-    /// The context after `token`: where in a word it is, the bonus still pending, and the score change.
-    private func step(_ node: Node, _ pending: Float, _ token: Int) -> (Node, Float, Float) {
-        var node = node, change: Float = 0
+    /// The context after `token` (following `previous`): where in a word it is, the bonus still pending,
+    /// whether the word ran on from an English one, and the score change.
+    private func step(_ node: Node, _ pending: Float, _ glued: Bool, _ token: Int, after previous: Int?) -> (Node, Float, Bool, Float) {
+        var node = node, change: Float = 0, glued = glued
         if node.next[token] == nil {
             change = -pending   // the partial word broke off
             node = root
-            if root.next[token] == nil { return (root, 0, change) }
+            if root.next[token] == nil { return (root, 0, false, change) }
         }
+        if node === root { glued = previous.map(latinEnd.contains) == true && !wordStart.contains(token) }
         let child = node.next[token]!
         if child.end {
-            let whole = Self.bonus * Float(child.depth)
-            return (child.next.isEmpty ? root : child, 0, change + whole - (node === root ? 0 : pending))
+            let whole = glued ? child.gluedReward : child.reward
+            return (child.next.isEmpty ? root : child, 0, false, change + whole - (node === root ? 0 : pending))
         }
         let part = Self.bonus * Self.partial
-        return (child, (node === root ? 0 : pending) + part, change + part)
+        return (child, (node === root ? 0 : pending) + part, glued, change + part)
     }
 
     private struct Beam {
@@ -109,6 +129,7 @@ struct HotwordDecoder {
         var token: Float      // log P(prefix), ending in its last token
         var node: Node
         var pending: Float
+        var glued = false
         var context: Float
         var total: Float { logAdd(blank, token) }
     }
@@ -132,8 +153,8 @@ struct HotwordDecoder {
                         existing.token = logAdd(existing.token, score)
                         next[prefix] = existing
                     } else {
-                        let (node, pending, change) = step(beam.node, beam.pending, token)
-                        next[prefix] = Beam(blank: -.infinity, token: score, node: node, pending: pending, context: beam.context + change)
+                        let (node, pending, glued, change) = step(beam.node, beam.pending, beam.glued, token, after: prefix.dropLast().last)
+                        next[prefix] = Beam(blank: -.infinity, token: score, node: node, pending: pending, glued: glued, context: beam.context + change)
                     }
                 }
                 for (prefix, beam) in beams {
@@ -142,7 +163,7 @@ struct HotwordDecoder {
                         same.blank = logAdd(same.blank, total + row[blankID])
                         next[prefix] = same
                     } else {
-                        next[prefix] = Beam(blank: total + row[blankID], token: -.infinity, node: beam.node, pending: beam.pending, context: beam.context)
+                        next[prefix] = Beam(blank: total + row[blankID], token: -.infinity, node: beam.node, pending: beam.pending, glued: beam.glued, context: beam.context)
                     }
                     let last = prefix.last
                     for c in candidates {

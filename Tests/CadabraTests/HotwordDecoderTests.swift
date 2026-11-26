@@ -33,6 +33,19 @@ struct HotwordDecoderTests {
         #expect(SenseVoiceNet.greedy(torn(-9)).map { Self.pieces[$0] }.joined() == "不许出去")
     }
 
+    /// "muse home link" heard as mus|use ▁home ▁link, with HomeLink a hotword: the spelling ho|me|link has
+    /// one piece more than ▁home|link, but running it on from "use" mustn't pay for losing the space.
+    @Test func aHotwordDoesntRunOnFromTheEnglishWordBefore() {
+        let pieces = ["<blk>", "mus", "use", "▁home", "▁link", "ho", "me", "link", "里"]
+        func frame(_ f: [String: Float]) -> [Float] { pieces.map { f[$0] ?? -30 } }
+        let frames = [frame(["mus": -0.05]), frame(["<blk>": -0.05]), frame(["use": -0.05]),
+                      frame(["▁home": -0.5, "ho": -1.5]), frame(["<blk>": -0.05, "me": -1.0]),
+                      frame(["▁link": -0.5, "link": -1.0]), frame(["里": -0.05])]
+        let scores = SenseVoiceNet.Scores(logp: frames.flatMap { $0 }, frames: frames.count, vocabulary: pieces.count)
+        let tokens = HotwordDecoder(words: ["HomeLink"], pieces: pieces).decode(scores)
+        #expect(tokens.map { $0.map { pieces[$0] }.joined() } == "mususe▁homelink里")
+    }
+
     @Test func noHotwordsMeansNoBeamSearch() {
         let decoder = HotwordDecoder(words: [], pieces: Self.pieces)
         #expect(decoder.isEmpty)
